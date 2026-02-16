@@ -64,21 +64,21 @@ export default function CompanyReview() {
     <div className="min-h-screen bg-gray-50 font-sans pb-10">
       <Navbar />
       
-      <div className="bg-blue-900 text-white py-8 px-8 mb-8">
-          <div className="max-w-4xl mx-auto">
-             <h1 className="text-2xl font-bold mb-2">เขียนรีวิวบริษัท {companyName}</h1>
-             <div className="flex gap-6 text-sm text-blue-200">
+      <div className="bg-blue-900 text-white py-10 px-4 mb-8">
+          <div className="max-w-6xl mx-auto">
+             <h1 className="text-3xl font-bold mb-3">เขียนรีวิวบริษัท {companyName}</h1>
+             <div className="flex gap-6 text-base text-blue-200">
                  <span>ตำแหน่งที่ฝึกงาน: {jobTitle}</span>
                  <span>ระยะเวลาฝึกงาน: {duration}</span>
              </div>
           </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-8">
-        <div className="bg-white rounded-lg shadow-sm border p-8 mb-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-sm border p-10 mb-8">
             <div className="flex justify-between items-center border-b pb-4 mb-6">
-                <h2 className="text-xl font-bold text-blue-900">คะแนนภาพรวม</h2>
-                <div className="text-3xl font-bold text-yellow-500 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-blue-900">คะแนนภาพรวม</h2>
+                <div className="text-4xl font-bold text-yellow-500 flex items-center gap-2">
                     {averageRating} <Star fill="currentColor" size={32} />
                 </div>
             </div>
@@ -87,7 +87,7 @@ export default function CompanyReview() {
                 {/* Work Section */}
                 <div className="border rounded p-4">
                     <h3 className="font-bold text-center mb-4">ด้านงาน (Work)</h3>
-                    <div className="space-y-3 text-sm">
+                    <div className="space-y-3 text-base">
                         <div className="flex justify-between items-center">
                             <span>ความท้าทายของงาน</span>
                             {renderStars('work_challenge')}
@@ -110,7 +110,7 @@ export default function CompanyReview() {
                 {/* Life Section */}
                 <div className="border rounded p-4">
                     <h3 className="font-bold text-center mb-4">ด้านชีวิต (Life)</h3>
-                    <div className="space-y-3 text-sm">
+                    <div className="space-y-3 text-base">
                         <div className="flex justify-between items-center">
                             <span>วัฒนธรรมองค์กร</span>
                             {renderStars('life_culture')}
@@ -133,7 +133,7 @@ export default function CompanyReview() {
                 {/* Social Section */}
                 <div className="border rounded p-4">
                     <h3 className="font-bold text-center mb-4">ด้านสังคม (Social)</h3>
-                    <div className="space-y-3 text-sm">
+                    <div className="space-y-3 text-base">
                         <div className="flex justify-between items-center">
                             <span>ความสัมพันธ์</span>
                             {renderStars('social_relation')}
@@ -155,22 +155,22 @@ export default function CompanyReview() {
             </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-8">
-            <h2 className="text-lg font-bold text-blue-900 mb-4">รีวิวประสบการณ์การฝึกงานกับบริษัทนี้</h2>
+        <div className="bg-white rounded-lg shadow-sm border p-10 mb-10">
+            <h2 className="text-xl font-bold text-blue-900 mb-4">รีวิวประสบการณ์การฝึกงานกับบริษัทนี้</h2>
             <textarea 
-                className="w-full border rounded-lg p-4 min-h-[150px] focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
+                className="w-full border rounded-lg p-4 min-h-[180px] focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6 text-base"
                 placeholder="สิ่งที่คุณประทับใจหรือได้เรียนรู้จากการฝึกงาน..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
             ></textarea>
 
             <div className="flex justify-end gap-4">
-                <Link to={`/company/${id}`} className="px-6 py-2 border rounded-lg hover:bg-gray-50 text-gray-600">
+                <Link to={`/company/${id}`} className="px-6 py-2.5 border rounded-lg hover:bg-gray-50 text-gray-600 text-base">
                     ยกเลิก
                 </Link>
                 <button 
                     onClick={handleSubmit}
-                    className="px-6 py-2 bg-blue-900 text-white rounded-lg font-bold hover:bg-blue-800"
+                    className="px-6 py-2.5 bg-blue-900 text-white rounded-lg font-bold text-base hover:bg-blue-800"
                 >
                     ยืนยัน
                 </button>
