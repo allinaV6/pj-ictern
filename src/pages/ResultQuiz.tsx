@@ -83,24 +83,24 @@ export default function ResultQuiz() {
 
       {/* Header Banner */}
       <div className="bg-blue-900 text-white py-10 px-4">
-        <div className="max-w-4xl mx-auto text-center md:text-left">
-          <h1 className="text-3xl font-bold mb-3">ตำแหน่งฝึกงานที่แนะนำจากผลการประเมินความสนใจในสายอาชีพ</h1>
-          <p className="text-blue-200">
+        <div className="max-w-6xl mx-auto text-center md:text-left">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">ตำแหน่งฝึกงานที่แนะนำจากผลการประเมินความสนใจในสายอาชีพ</h1>
+          <p className="text-blue-200 text-lg">
             เลือกตำแหน่งที่คุณสนใจได้ <span className="font-bold text-white">สูงสุด 3 ตำแหน่ง</span> เพื่อเริ่มทำแบบทดสอบที่เหมาะกับคุณ
           </p>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 mt-8">
-        <div className="bg-white rounded-lg shadow-sm border p-8">
+      <div className="max-w-6xl mx-auto px-4 mt-8">
+        <div className="bg-white rounded-lg shadow-sm border p-10">
             
             {/* Winner Section */}
             <div className="text-center mb-12">
-                <h2 className="text-xl text-blue-900 font-bold mb-8">
+                <h2 className="text-2xl text-blue-900 font-bold mb-8">
                     ผลลัพธ์ตำแหน่งอันดับ 1 ของคุณคือ <span className="text-blue-600">{winner.title}</span>
                 </h2>
                 
-                <h3 className="text-lg font-bold text-blue-900 mb-6">ภาพรวมผลการประเมินทักษะทั้ง 3 ตำแหน่ง</h3>
+                <h3 className="text-xl font-bold text-blue-900 mb-6">ภาพรวมผลการประเมินทักษะทั้ง 3 ตำแหน่ง</h3>
                 
                 {/* Bar Chart */}
                 <div className="flex justify-center items-end gap-8 h-64 max-w-lg mx-auto mb-4">
@@ -120,25 +120,25 @@ export default function ResultQuiz() {
                         
                         return (
                             <div key={item.id} className="flex flex-col items-center gap-2 w-24">
-                                <span className="font-bold text-gray-700">{item.score}%</span>
+                                <span className="font-bold text-gray-700 text-lg">{item.score}%</span>
                                 <div 
                                     className={`w-full rounded-t-lg transition-all duration-1000 ${barColor}`} 
                                     style={{ height: `${item.score * 2}px` }}
                                 ></div>
-                                <span className="text-sm font-bold text-blue-900 text-center leading-tight">{item.title}</span>
+                                <span className="text-base font-bold text-blue-900 text-center leading-tight">{item.title}</span>
                             </div>
                         );
                     })}
                 </div>
-                <div className="text-center text-gray-400 text-sm">ทำแบบทดสอบครั้งล่าสุดวันที่ 31/10/2568</div>
+                <div className="text-center text-gray-400 text-base">ทำแบบทดสอบครั้งล่าสุดวันที่ 31/10/2568</div>
             </div>
 
             <hr className="border-gray-200 mb-8" />
 
             {/* Recommendations */}
             <div className="mb-8">
-                <h3 className="text-xl font-bold text-blue-900 mb-4">แนวทางการพัฒนาทักษะ {winner.title}</h3>
-                <ul className="list-disc pl-5 space-y-2 text-gray-700">
+                <h3 className="text-2xl font-bold text-blue-900 mb-4">แนวทางการพัฒนาทักษะ {winner.title}</h3>
+                <ul className="list-disc pl-5 space-y-2 text-gray-700 text-base">
                     {recommendations.map((rec, idx) => (
                         <li key={idx}>{rec}</li>
                     ))}
@@ -149,10 +149,10 @@ export default function ResultQuiz() {
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-4">
-                <Link to="/quiz" className="flex items-center gap-2 px-6 py-2 border rounded-lg hover:bg-gray-50 text-gray-600 font-bold">
+                <Link to="/quiz" className="flex items-center gap-2 px-6 py-2.5 border rounded-lg hover:bg-gray-50 text-gray-600 font-bold text-base">
                     ทำแบบทดสอบใหม่อีกครั้ง
                 </Link>
-                <Link to="/posts" className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg font-bold hover:bg-blue-800">
+                <Link to="/posts" className="flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white rounded-lg font-bold text-base hover:bg-blue-800">
                     ค้นหาสถานที่ฝึกงาน
                 </Link>
             </div>

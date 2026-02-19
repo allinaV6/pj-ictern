@@ -70,52 +70,52 @@ export default function DetailCompany() {
       <Navbar />
 
       {/* Blue Banner Header */}
-      <div className="bg-blue-900 text-white py-12 px-8 mb-8">
+      <div className="bg-blue-900 text-white py-12 px-4 mb-8">
           <div className="max-w-6xl mx-auto">
-             <h1 className="text-3xl font-bold">รายละเอียดบริษัท {company.name}</h1>
+             <h1 className="text-4xl font-bold">รายละเอียดบริษัท {company.name}</h1>
           </div>
       </div>
       
-      <div className="max-w-6xl mx-auto mt-8 px-8">
+      <div className="max-w-6xl mx-auto mt-8 px-4">
         <Link to={`/posts/${id}`} className="flex items-center gap-2 text-gray-500 mb-6 hover:text-gray-700">
           <ArrowLeft size={20} /> Back to job details
         </Link>
 
         {/* Company Header */}
-        <div className="bg-white p-8 rounded-lg shadow-sm border mb-8">
+        <div className="bg-white p-10 rounded-xl shadow-sm border mb-8">
           <div className="flex items-start gap-6">
             <div className="w-16 h-16 bg-blue-900 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
               Logo
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-xl font-bold text-blue-900">{company.name}</h1>
+                <h1 className="text-2xl font-bold text-blue-900">{company.name}</h1>
                 <span className="text-yellow-500 font-bold flex items-center gap-1">
-                  ★ {company.rating} <span className="text-gray-400 font-normal text-sm">({company.reviews} Reviews)</span>
+                  ★ {company.rating} <span className="text-gray-300 font-normal text-base">({company.reviews} Reviews)</span>
                 </span>
               </div>
               
-              <p className="text-gray-600 text-sm mb-4">{company.description}</p>
+              <p className="text-gray-700 text-base mb-4 leading-relaxed">{company.description}</p>
               
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
-                <div className="flex items-center gap-2"><MapPin size={14} className="text-red-500"/> {company.location}</div>
-                <div className="flex items-center gap-2"><Phone size={14} className="text-green-600"/> {company.phone}</div>
-                <div className="flex items-center gap-2"><Mail size={14} className="text-gray-500"/> {company.email}</div>
-                <div className="flex items-center gap-2"><Globe size={14} className="text-blue-500"/> {company.website}</div>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-700">
+                <div className="flex items-center gap-2"><MapPin size={16} className="text-red-500"/> {company.location}</div>
+                <div className="flex items-center gap-2"><Phone size={16} className="text-green-600"/> {company.phone}</div>
+                <div className="flex items-center gap-2"><Mail size={16} className="text-gray-500"/> {company.email}</div>
+                <div className="flex items-center gap-2"><Globe size={16} className="text-blue-500"/> {company.website}</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Active Jobs Section */}
-        <div className="mb-8">
-          <h2 className="text-lg font-bold text-blue-900 mb-4">ประกาศรับสมัครงาน ({activeJobs.length})</h2>
+        <div className="mb-10">
+          <h2 className="text-xl font-bold text-blue-900 mb-4">ประกาศรับสมัครงาน ({activeJobs.length})</h2>
           <div className="space-y-4">
             {activeJobs.map(job => (
               <div key={job.id} className="bg-white p-6 rounded-lg shadow-sm border flex justify-between items-center">
                 <div>
-                  <h3 className="text-blue-900 font-bold mb-1">{job.title}</h3>
-                  <div className="text-xs text-gray-500 flex gap-2">
+                  <h3 className="text-blue-900 font-bold mb-1 text-lg">{job.title}</h3>
+                  <div className="text-sm text-gray-500 flex gap-2">
                     <span>ค่าตอบแทน: {job.salary}</span>
                     <span>|</span>
                     <span>ระยะเวลา: {job.duration}</span>
@@ -123,9 +123,12 @@ export default function DetailCompany() {
                     <span>ประกาศเมื่อ: {job.posted}</span>
                   </div>
                 </div>
-                <button className="bg-blue-900 text-white px-6 py-2 rounded text-sm font-bold hover:bg-blue-800">
+                <Link
+                  to={`/posts/${job.id}`}
+                  className="bg-blue-900 text-white px-7 py-2.5 rounded text-base font-bold hover:bg-blue-800"
+                >
                   ดูรายละเอียด
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -134,7 +137,7 @@ export default function DetailCompany() {
         {/* Reviews Section */}
         <div>
           <div className="flex justify-between items-center mb-4">
-             <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+             <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
                รีวิวการฝึกงาน ({reviews.length}) 
                <div className="relative">
                  <Info 
@@ -143,7 +146,7 @@ export default function DetailCompany() {
                    onClick={() => setShowDefinitions(!showDefinitions)}
                  />
                  {showDefinitions && (
-                    <div className="absolute left-6 top-0 w-80 bg-gray-900 text-white p-4 rounded-lg shadow-xl z-20 text-xs text-left font-normal">
+                    <div className="absolute left-6 top-0 w-80 bg-gray-900 text-white p-4 rounded-lg shadow-xl z-20 text-sm text-left font-normal">
                       {/* Triangle pointing left */}
                       <div className="absolute -left-2 top-1.5 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-gray-900"></div>
                       
@@ -163,21 +166,21 @@ export default function DetailCompany() {
                  )}
                </div>
              </h2>
-             <Link to={`/company/${id}/review`} className="px-4 py-2 bg-gray-200 text-gray-600 rounded text-sm font-bold hover:bg-gray-300">
+             <Link to={`/company/${id}/review`} className="px-5 py-2 bg-gray-200 text-gray-700 rounded text-base font-bold hover:bg-gray-300">
                เขียนรีวิวของคุณ
              </Link>
           </div>
 
           <div className="space-y-4">
             {reviews.map(review => (
-              <div key={review.id} className="bg-white p-6 rounded-lg shadow-sm border">
+              <div key={review.id} className="bg-white p-7 rounded-lg shadow-sm border">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-blue-900 font-bold text-sm">{review.name} <span className="text-gray-500 font-normal ml-2">{review.position}</span></h3>
-                    <p className="text-xs text-gray-400">{review.duration}</p>
+                    <h3 className="text-blue-900 font-bold text-base">{review.name} <span className="text-gray-500 font-normal ml-2">{review.position}</span></h3>
+                    <p className="text-sm text-gray-400">{review.duration}</p>
                   </div>
                   
-                  <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">
+                  <div className="flex items-center gap-1 text-yellow-500 font-bold text-base">
                     <div className="relative">
                       <Info 
                         size={14} 
@@ -185,7 +188,7 @@ export default function DetailCompany() {
                         onClick={() => setActiveTooltip(activeTooltip === review.id ? null : review.id)}
                       />
                       {activeTooltip === review.id && (
-                        <div className="absolute left-1/2 -translate-x-1/2 top-6 w-48 bg-gray-900 text-white p-3 rounded-lg shadow-xl z-10 text-xs cursor-auto text-left font-normal">
+                        <div className="absolute left-1/2 -translate-x-1/2 top-6 w-52 bg-gray-900 text-white p-3 rounded-lg shadow-xl z-10 text-sm cursor-auto text-left font-normal">
                           {/* Triangle */}
                           <div className="absolute left-1/2 -translate-x-1/2 -top-2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-8 border-b-gray-900"></div>
                           
@@ -206,7 +209,7 @@ export default function DetailCompany() {
                   </div>
                 </div>
 
-                <p className="text-sm text-gray-600 mb-4">{review.comment}</p>
+                <p className="text-base text-gray-700 mb-4 leading-relaxed">{review.comment}</p>
               </div>
             ))}
           </div>
