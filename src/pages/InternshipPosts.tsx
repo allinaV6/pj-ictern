@@ -23,23 +23,33 @@ function InternshipPost() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  useEffect(() => {
-    fetch("http://localhost:5000/api/posts")
-      .then((res) => {
-        if (!res.ok) throw new Error("Fetch failed");
-        return res.json();
-      })
-      .then((data: InternshipPostType[]) => {
-        console.log("API DATA:", data); // ใช้ debug ได้
+useEffect(() => {
+  fetch("http://localhost:5000/api/posts")
+    .then(res => {
+      if (!res.ok) {
+        throw new Error("Server error");
+      }
+      return res.json();
+    })
+    .then(data => {
+      console.log("🔥 API RAW DATA:", data);
+
+      // ป้องกัน crash ถ้าไม่ใช่ array
+      if (Array.isArray(data)) {
         setPosts(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("ไม่สามารถโหลดข้อมูลได้");
-        setLoading(false);
-      });
-  }, []);
+      } else {
+        console.error("API ไม่ได้ส่ง array:", data);
+        setPosts([]);
+      }
+
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error("FETCH ERROR:", err);
+      setError("ไม่สามารถโหลดข้อมูลได้");
+      setLoading(false);
+    });
+}, []);
 
   return (
     <>

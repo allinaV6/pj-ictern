@@ -18,7 +18,7 @@ app.use(express.json());
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
+  password: process.env.DB_PASSWORD || "123456",
   database: process.env.DB_NAME || "ICTern",
   port: process.env.DB_PORT || 3306,
 });
@@ -77,28 +77,30 @@ app.post("/api/login", (req, res) => {
 app.get("/api/posts", (req, res) => {
   const sql = `
     SELECT 
-      internship_posts_id AS id,
-      internship_title AS title,
-      internship_location AS location,
-      internship_duration AS duration,
-      internship_compensation AS allowance,
-      internship_working_method AS type,
-      internship_create_date AS posted,
-      internship_posts_stat AS status
+      internship_posts_id,
+      internship_title,
+      internship_location,
+      internship_duration,
+      internship_description,
+      internship_responsibilities,
+      internship_requirements,
+      internship_compensation,
+      internship_working_method,
+      internship_link,
+      internship_expired_date
     FROM internship_posts
-    ORDER BY internship_posts_id DESC
   `;
 
   db.query(sql, (err, results) => {
     if (err) {
-      console.error("❌ SQL ERROR:", err);
-      return res.status(500).json({ message: "Database error", error: err });
+      console.error(err);
+      return res.status(500).json(err);
     }
 
+    console.log("DB RESULT:", results);
     res.json(results);
   });
 });
-
 
 // ==================================================
 app.listen(PORT, () => {
