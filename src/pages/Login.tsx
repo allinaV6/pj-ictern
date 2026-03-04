@@ -1,108 +1,73 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../lib/firebase"; // ✅ ปรับ path ถ้าไฟล์ firebase.ts อยู่ที่อื่น
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-export default function Login() {
-  const navigate = useNavigate();
-
-  const [email, setEmail] = useState("");        // Username -> Email
+function Login() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
 
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const response = await axios.post(
+        "http://localhost:5000/api/login",
+        {
+          email: username,
+          password: password,
+        }
+      );
 
-      // ✅ เช็คว่าเชื่อม Firebase สำเร็จ
-      console.log("Login success:", cred.user.uid, cred.user.email);
+      console.log(response.data);
 
-      // (ถ้าจะส่ง token ไป backend ในอนาคต)
-      // const token = await cred.user.getIdToken();
-      // console.log("idToken:", token);
+      // เก็บ user ไว้ใน localStorage (เหมือน Firebase session)
+      localStorage.setItem("user", JSON.stringify(response.data.user));
 
       navigate("/posts");
-    } catch (err: any) {
-      const code = err?.code as string | undefined;
-
-      if (code === "auth/invalid-email") setError("รูปแบบอีเมลไม่ถูกต้อง");
-      else if (code === "auth/user-not-found") setError("ไม่พบบัญชีผู้ใช้นี้");
-      else if (code === "auth/wrong-password") setError("รหัสผ่านไม่ถูกต้อง");
-      else if (code === "auth/invalid-credential") setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
-      else setError(err?.message || "เข้าสู่ระบบไม่สำเร็จ");
-
-      console.error("Firebase login error:", err);
-    } finally {
-      setLoading(false);
+    } catch (error: any) {
+      alert("Username หรือ Password ไม่ถูกต้อง ❌");
+      console.error(error.response?.data || error.message);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-10 rounded-lg shadow-lg max-w-md w-full text-center">
-        <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 bg-blue-900 rounded-full flex items-center justify-center text-white font-bold">
-            Logo
-          </div>
-        </div>
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+      <div className="card shadow-lg p-4" style={{ width: "400px" }}>
+        <h3 className="text-center mb-4">Login</h3>
 
-        <h1 className="text-3xl font-bold text-gray-800 mb-1">Sign in</h1>
-        <p className="text-gray-500 mb-8">with your Mahidol University Accounts.</p>
-
-        {error && (
-          <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-4 text-left">
-          <div>
+        <form onSubmit={handleLogin}>
+          <div className="mb-3">
+            <label className="form-label">Username</label>
             <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+              type="text"
+              className="form-control"
+              placeholder="Enter username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
 
-          <div>
+          <div className="mb-3">
+            <label className="form-label">Password</label>
             <input
               type="password"
-              placeholder="Password"
+              className="form-control"
+              placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
               required
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loading ? "Signing in..." : "Sign in"}
+          <button type="submit" className="btn btn-primary w-100">
+            Login
           </button>
         </form>
-
-        <div className="mt-6 text-left flex items-center justify-between">
-          <Link to="/forgot" className="text-blue-600 hover:underline text-sm">
-            Forgot Password?
-          </Link>
-
-          {/* ถ้าคุณมีหน้า Register */}
-          <Link to="/register" className="text-blue-600 hover:underline text-sm">
-            Create account
-          </Link>
-        </div>
       </div>
     </div>
   );
 }
+
+export default Login;
