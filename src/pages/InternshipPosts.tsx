@@ -133,9 +133,13 @@ export default function InternshipPosts() {
             return (
             <div key={job.id} className="bg-white p-7 rounded-xl shadow-sm border hover:shadow-md transition">
               <div className="flex justify-between items-start mb-2">
-                <h2 className="text-xl font-bold text-blue-900 flex items-center gap-1">
-                  {job.title} 
-                  <span className="text-blue-500 text-sm">✓</span>
+                <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                  {job.title}
+                  <img
+                    src="/mou-logo.png"
+                    alt="MOU"
+                    className="w-8 h-8 object-contain mt-1"
+                  />
                 </h2>
                 <button
                   type="button"
