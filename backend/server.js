@@ -77,23 +77,26 @@ app.post("/api/login", (req, res) => {
 app.get("/api/posts", (req, res) => {
   const sql = `
     SELECT 
-      internship_posts_id,
-      internship_title,
-      internship_location,
-      internship_duration,
-      internship_description,
-      internship_responsibilities,
-      internship_requirements,
-      internship_compensation,
-      internship_working_method,
-      internship_link,
-      internship_expired_date
-    FROM internship_posts
+      i.internship_posts_id AS post_id,
+      i.internship_title,
+      i.internship_location,
+      i.internship_duration,
+      i.internship_description,
+      i.internship_responsibilities,
+      i.internship_requirements,
+      i.internship_compensation,
+      i.internship_working_method,
+      i.internship_link,
+      i.internship_expired_date,
+      c.company_name
+    FROM internship_posts i
+    JOIN company c
+      ON i.company_id = c.company_id
   `;
 
   db.query(sql, (err, results) => {
     if (err) {
-      console.error(err);
+      console.error("❌ Query error:", err);
       return res.status(500).json(err);
     }
 
