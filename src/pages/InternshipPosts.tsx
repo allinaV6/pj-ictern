@@ -6,6 +6,7 @@ import { Search, Heart, MapPin, Clock, Calendar, FileText } from "lucide-react";
 interface InternshipPostType {
   post_id: number;
   internship_title: string;
+  company_name: string;
   internship_location: string;
   internship_duration: string;
   internship_description: string;
@@ -17,26 +18,20 @@ interface InternshipPostType {
   internship_expired_date: string;
 }
 
-function InternshipPost() {
+function InternshipPosts() {
   const [posts, setPosts] = useState<InternshipPostType[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   useEffect(() => {
     fetch("http://localhost:5000/api/posts")
-      .then((res) => {
-        if (!res.ok) throw new Error("Server error");
-        return res.json();
-      })
+      .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
-          setPosts(data);
-        } else {
-          setPosts([]);
-        }
+        setPosts(data);
         setLoading(false);
       })
       .catch(() => {
@@ -57,11 +52,14 @@ function InternshipPost() {
     return posts
       .filter((post) => {
         if (!keyword) return true;
+
         const text = `
           ${post.internship_title}
+          ${post.company_name}
           ${post.internship_location}
           ${post.internship_description}
         `.toLowerCase();
+
         return text.includes(keyword);
       })
       .filter((post) => {
@@ -71,10 +69,9 @@ function InternshipPost() {
   }, [posts, searchTerm, showFavoritesOnly, favoriteIds]);
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      {/* Banner */}
       <div className="bg-blue-900 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-4xl font-bold mb-3">
@@ -88,80 +85,84 @@ function InternshipPost() {
 
       <div className="max-w-6xl mx-auto px-4 py-10">
 
-        {/* Search + Filter */}
-        <div className="flex flex-wrap gap-4 items-center justify-between mb-8">
-          <div className="relative flex-grow max-w-2xl">
+        <div className="flex gap-4 mb-8">
+
+          <div className="relative flex-grow">
+
             <input
               type="text"
               placeholder="ค้นหาตำแหน่งฝึกงาน"
-              className="w-full pl-11 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-3 border rounded-lg"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
+
+            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+
           </div>
 
           <button
-            onClick={() => setShowFavoritesOnly((prev) => !prev)}
-            className={`px-5 py-2.5 border rounded-lg flex items-center gap-2 transition ${
-              showFavoritesOnly
-                ? "bg-blue-900 text-white border-blue-900"
-                : "bg-white hover:bg-gray-50"
-            }`}
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className="px-4 py-2 border rounded-lg"
           >
-            <Heart
-              size={16}
-              fill={showFavoritesOnly ? "currentColor" : "none"}
-            />
-            แสดงรายการโปรด
+            รายการโปรด
           </button>
+
         </div>
 
-        {loading && <p>กำลังโหลดข้อมูล...</p>}
+        {loading && <p>Loading...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
-        {/* Card Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
           {filteredPosts.map((post) => {
+
             const isFavorite = favoriteIds.includes(post.post_id);
 
             return (
               <div
                 key={post.post_id}
-                className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition"
+                className="bg-white p-6 rounded-xl shadow border"
               >
-                <div className="flex justify-between items-start">
-                  <h2 className="text-xl font-bold text-blue-900">
-                    {post.internship_title}
-                  </h2>
 
-                  <button
-                    onClick={() => toggleFavorite(post.post_id)}
-                  >
+                <div className="flex justify-between">
+
+                  <div>
+
+                    <h2 className="text-xl font-bold text-blue-900">
+                      {post.internship_title}
+                    </h2>
+
+                    <p className="text-gray-500">
+                      {post.company_name}
+                    </p>
+
+                  </div>
+
+                  <button onClick={() => toggleFavorite(post.post_id)}>
                     <Heart
                       size={20}
                       className={isFavorite ? "text-red-500" : "text-gray-400"}
                       fill={isFavorite ? "currentColor" : "none"}
                     />
                   </button>
+
                 </div>
 
-                <p className="text-gray-600 mt-2 flex items-center gap-1">
-                  <MapPin size={14} className="text-red-500" />
+                <p className="flex items-center mt-2 text-gray-600">
+                  <MapPin size={14} className="mr-1" />
                   {post.internship_location}
                 </p>
 
-                <p className="text-sm text-gray-700 mt-3 line-clamp-3">
+                <p className="text-sm mt-3 line-clamp-3">
                   {post.internship_description}
                 </p>
 
-                <div className="mt-4 space-y-2 text-sm">
+                <div className="mt-4 text-sm space-y-2">
+
                   <div className="flex items-center gap-1">
-                    <Clock size={14} />
-                    {post.internship_duration}
+                   <Clock size={14} />
+                  {post.internship_duration} เดือน
                   </div>
 
                   <div className="text-green-600 font-semibold">
@@ -177,25 +178,43 @@ function InternshipPost() {
                     <Calendar size={14} />
                     หมดเขต: {post.internship_expired_date}
                   </div>
+
                 </div>
 
-                {post.internship_link && (
-                  <a
-                    href={post.internship_link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full mt-5 py-2.5 bg-blue-900 text-white text-center rounded-lg font-semibold hover:bg-blue-800"
+                <div className="flex gap-3 mt-5">
+
+                  <Link
+                    to={`/posts/${post.post_id}`}
+                    className="flex-1 py-2 border text-blue-900 border-blue-900 text-center rounded-lg"
                   >
-                    สมัครเลย
-                  </a>
-                )}
+                    ดูรายละเอียด
+                  </Link>
+
+
+                  {post.internship_link && (
+                    <a
+                      href={post.internship_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 py-2 bg-blue-900 text-white text-center rounded-lg"
+                    >
+                      สมัคร
+                    </a>
+                  )}
+
+                </div>
+
               </div>
             );
+
           })}
+
         </div>
+
       </div>
+
     </div>
   );
 }
 
-export default InternshipPost;
+export default InternshipPosts;

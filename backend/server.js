@@ -6,14 +6,11 @@ const cors = require("cors");
 const app = express();
 const PORT = 5000;
 
-// =====================
-// Middleware
-// =====================
 app.use(cors());
 app.use(express.json());
 
 // =====================
-// MySQL Connection (ใช้ connection pool เสถียรกว่า)
+// MySQL Connection
 // =====================
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
@@ -23,7 +20,6 @@ const db = mysql.createPool({
   port: process.env.DB_PORT || 3306,
 });
 
-// ทดสอบ connection
 db.getConnection((err, connection) => {
   if (err) {
     console.error("❌ MySQL connection failed:", err);
@@ -35,17 +31,18 @@ db.getConnection((err, connection) => {
 
 
 // ==================================================
-// ✅ LOGIN API
+// LOGIN
 // ==================================================
 app.post("/api/login", (req, res) => {
+
   const { email, password } = req.body;
 
   const sql = "SELECT * FROM account WHERE username = ?";
 
   db.query(sql, [email], (err, results) => {
+
     if (err) {
-      console.error("❌ Database error:", err);
-      return res.status(500).json({ message: "Database error" });
+      return res.status(500).json(err);
     }
 
     if (results.length === 0) {
@@ -67,43 +64,93 @@ app.post("/api/login", (req, res) => {
         status: user.account_status,
       },
     });
+
   });
+
 });
 
 
 // ==================================================
-// ✅ GET ALL INTERNSHIP POSTS
+// GET ALL POSTS
 // ==================================================
 app.get("/api/posts", (req, res) => {
+
   const sql = `
-    SELECT 
-      i.internship_posts_id AS post_id,
-      i.internship_title,
-      i.internship_location,
-      i.internship_duration,
-      i.internship_description,
-      i.internship_responsibilities,
-      i.internship_requirements,
-      i.internship_compensation,
-      i.internship_working_method,
-      i.internship_link,
-      i.internship_expired_date,
-      c.company_name
-    FROM internship_posts i
-    JOIN company c
-      ON i.company_id = c.company_id
+  SELECT 
+    i.internship_posts_id AS post_id,
+    i.internship_title,
+    i.internship_location,
+    i.internship_duration,
+    i.internship_description,
+    i.internship_responsibilities,
+    i.internship_requirements,
+    i.internship_compensation,
+    i.internship_working_method,
+    i.internship_link,
+    i.internship_expired_date,
+    c.company_name
+  FROM internship_posts i
+  JOIN company c
+  ON i.company_id = c.company_id
   `;
 
   db.query(sql, (err, results) => {
+
     if (err) {
-      console.error("❌ Query error:", err);
+      console.error(err);
       return res.status(500).json(err);
     }
 
-    console.log("DB RESULT:", results);
     res.json(results);
+
   });
+
 });
+
+
+// ==================================================
+// GET POST BY ID
+// ==================================================
+app.get("/api/posts/:id", (req, res) => {
+
+  const id = req.params.id;
+
+  const sql = `
+  SELECT 
+    i.internship_posts_id AS post_id,
+    i.internship_title,
+    i.internship_location,
+    i.internship_duration,
+    i.internship_description,
+    i.internship_responsibilities,
+    i.internship_requirements,
+    i.internship_compensation,
+    i.internship_working_method,
+    i.internship_link,
+    i.internship_expired_date,
+    c.company_name
+  FROM internship_posts i
+  JOIN company c
+  ON i.company_id = c.company_id
+  WHERE i.internship_posts_id = ?
+  `;
+
+  db.query(sql, [id], (err, results) => {
+
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    res.json(results[0]);
+
+  });
+
+});
+
 
 // ==================================================
 app.listen(PORT, () => {
