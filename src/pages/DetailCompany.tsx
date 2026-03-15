@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { MapPin, Phone, Mail, Globe, ArrowLeft, Star, Info } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, ArrowLeft, Star, Info, X, CheckCircle, FileText, Calendar, Clock } from 'lucide-react';
 import axios from 'axios';
 
 interface CompanyData {
@@ -22,6 +22,10 @@ interface JobData {
   internship_location: string;
   internship_duration: string | number;
   internship_compensation: string;
+  internship_description: string;
+  internship_responsibilities: string;
+  internship_requirements: string;
+  internship_working_method: string;
   internship_expired_date: string;
 }
 
@@ -29,6 +33,8 @@ export default function DetailCompany() {
   const { id } = useParams();
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
   const [showDefinitions, setShowDefinitions] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [company, setCompany] = useState<CompanyData | null>(null);
   const [activeJobs, setActiveJobs] = useState<JobData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,8 +123,8 @@ export default function DetailCompany() {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-blue-900">{company.company_name}</h2>
-                <div className="flex items-center gap-1 text-yellow-500 text-sm font-bold">
-                  ★ 4.5 <span className="text-gray-400 font-normal ml-1">(4 Reviews)</span>
+                <div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
+                  ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
                 </div>
               </div>
             </div>
@@ -170,12 +176,15 @@ export default function DetailCompany() {
                     <span>ประกาศเมื่อ: 28/10/2025</span>
                   </div>
                 </div>
-                <Link
-                  to={`/posts/${job.post_id}`}
+                <button
+                  onClick={() => {
+                    setSelectedJob(job);
+                    setIsModalOpen(true);
+                  }}
                   className="inline-block bg-[#1a3a8a] text-white px-8 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition-colors shadow-sm"
                 >
                   ดูรายละเอียด
-                </Link>
+                </button>
               </div>
             )) : (
               <div className="bg-white p-10 rounded-xl border border-dashed border-gray-300 text-center text-gray-500">
@@ -239,6 +248,123 @@ export default function DetailCompany() {
           </div>
         </div>
       </div>
+
+      {/* Modal Detail Pop-up */}
+      {isModalOpen && selectedJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsModalOpen(false)}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col">
+            {/* Close Button */}
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="absolute right-6 top-6 text-gray-400 hover:text-gray-600 z-10 p-2 hover:bg-gray-100 rounded-full transition-all"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="overflow-y-auto p-8 pt-10">
+              {/* Header Info */}
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedJob.internship_title}</h2>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-gray-600 font-medium">{company?.company_name}</span>
+                  <div className="flex items-center gap-1 text-gray-400 font-bold">
+                    ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Badges/Tags Row */}
+              <div className="flex flex-wrap gap-4 mb-8 text-[13px]">
+                <div className="flex items-center gap-1.5 text-green-600 font-bold bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                  <CheckCircle size={16} />
+                  เปิดรับสมัคร
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                  <FileText size={16} />
+                  {selectedJob.internship_working_method || 'Onsite'}
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                  <MapPin size={16} className="text-red-500" />
+                  {selectedJob.internship_location}
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                  <Clock size={16} />
+                  ฿ {selectedJob.internship_compensation}
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                  <Calendar size={16} />
+                  ประกาศเมื่อ: 28/10/2025
+                </div>
+              </div>
+
+              {/* Separator Line (Top) */}
+              <div className="h-[1.5px] bg-gray-300 w-full mb-8 opacity-80"></div>
+
+              {/* Main Content Sections */}
+              <div className="space-y-8 pb-4">
+                {/* Description */}
+                <section>
+                  <h3 className="text-lg font-bold text-blue-900 mb-3">รายละเอียดงาน</h3>
+                  <p className="text-gray-600 text-[15px] leading-relaxed">
+                    {selectedJob.internship_description}
+                  </p>
+                </section>
+
+                {/* Responsibilities */}
+                <section>
+                  <h3 className="text-lg font-bold text-blue-900 mb-3">หน้าที่และความรับผิดชอบ</h3>
+                  <div className="text-gray-600 text-[15px] leading-relaxed whitespace-pre-line">
+                    {selectedJob.internship_responsibilities ? selectedJob.internship_responsibilities.split('\n').map((line: string, i: number) => (
+                      <div key={i} className="flex gap-2 mb-1">
+                        <span className="text-blue-900">•</span>
+                        <span>{line}</span>
+                      </div>
+                    )) : 'ไม่มีข้อมูล'}
+                  </div>
+                </section>
+
+                {/* Requirements */}
+                <section>
+                  <h3 className="text-lg font-bold text-blue-900 mb-3">คุณสมบัติที่ต้องการ</h3>
+                  <div className="text-gray-600 text-[15px] leading-relaxed whitespace-pre-line">
+                    {selectedJob.internship_requirements ? selectedJob.internship_requirements.split('\n').map((line: string, i: number) => (
+                      <div key={i} className="flex gap-2 mb-1">
+                        <span className="text-blue-900">•</span>
+                        <span>{line}</span>
+                      </div>
+                    )) : 'ไม่มีข้อมูล'}
+                  </div>
+                </section>
+              </div>
+
+              {/* Separator Line (Bottom) */}
+              <div className="h-[1.5px] bg-gray-300 w-full mt-6 mb-2 opacity-80"></div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-8 pt-4 flex justify-center gap-4">
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-8 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                ปิดหน้าต่าง
+              </button>
+              <button 
+                className="px-10 py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
+              >
+                สมัครงาน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -194,6 +194,10 @@ app.get("/api/posts/company/:id", (req, res) => {
       internship_location,
       internship_duration,
       internship_compensation,
+      internship_description,
+      internship_responsibilities,
+      internship_requirements,
+      internship_working_method,
       internship_expired_date
     FROM internship_posts 
     WHERE company_id = ?
