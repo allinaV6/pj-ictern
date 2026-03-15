@@ -113,11 +113,7 @@ export default function CareerFitQuiz() {
       <div className="bg-blue-900 text-white py-10 px-4">
         <div className="max-w-6xl mx-auto text-center md:text-left">
           <h1 className="text-3xl md:text-4xl font-bold mb-3">แบบประเมินความสนใจในสายอาชีพ</h1>
-<<<<<<< HEAD
           <p className="text-blue-200 mb-6 text-lg">เลือกตำแหน่งที่คุณสนใจได้ <span className="font-bold text-white">สูงสุด 3 ตำแหน่ง</span> เพื่อเริ่มทำแบบทดสอบที่เหมาะกับคุณ</p>
-=======
-          <p className="text-blue-200 mb-6 text-lg">เลือกตำแหน่งที่คุณสนใจได้ <span className="font-bold text-white">3 ตำแหน่ง</span> เพื่อเริ่มทำแบบทดสอบที่เหมาะกับคุณ</p>
->>>>>>> 9805dcc75177ccd82c3ba6655fa4e7ab03373e26
           
           <div className="flex flex-col md:flex-row gap-3 max-w-2xl">
             <div className="relative flex-grow">
