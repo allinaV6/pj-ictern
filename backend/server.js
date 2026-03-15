@@ -4,7 +4,7 @@ const mysql = require("mysql2");
 const cors = require("cors");
 
 const app = express();
-const PORT = 5000;
+const PORT = 5001;
 
 // =====================
 // Middleware
@@ -39,6 +39,7 @@ db.getConnection((err, connection) => {
 // ==================================================
 app.post("/api/login", (req, res) => {
   const { email, password } = req.body;
+  console.log("📨 Login request received:", { email, password });
 
   const sql = "SELECT * FROM account WHERE username = ?";
 
@@ -49,15 +50,19 @@ app.post("/api/login", (req, res) => {
     }
 
     if (results.length === 0) {
+      console.log("🔍 User not found for username:", email);
       return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
     }
 
     const user = results[0];
+    console.log("🔍 User found:", { username: user.username, role: user.role });
 
     if (password !== user.password) {
+      console.log("❌ Password mismatch for user:", email);
       return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
     }
 
+    console.log("✅ Login success for user:", email);
     res.json({
       message: "Login success",
       user: {
@@ -88,6 +93,7 @@ app.get("/api/posts", (req, res) => {
       i.internship_working_method,
       i.internship_link,
       i.internship_expired_date,
+      c.company_id,
       c.company_name
     FROM internship_posts i
     JOIN company c
@@ -101,6 +107,56 @@ app.get("/api/posts", (req, res) => {
     }
 
     console.log("DB RESULT:", results);
+    res.json(results);
+  });
+});
+
+// ==================================================
+// ✅ GET COMPANY BY ID
+// ==================================================
+app.get("/api/company/:id", (req, res) => {
+  const { id } = req.params;
+  console.log(`📨 Request for company ID: ${id}`);
+  const sql = "SELECT * FROM company WHERE company_id = ?";
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error("❌ Database error:", err);
+      return res.status(500).json({ message: "Database error" });
+    }
+
+    if (results.length === 0) {
+      console.log(`🔍 Company not found for ID: ${id}`);
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    console.log(`✅ Company found: ${results[0].company_name}`);
+    res.json(results[0]);
+  });
+});
+
+// ==================================================
+// ✅ GET POSTS BY COMPANY ID
+// ==================================================
+app.get("/api/posts/company/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = `
+    SELECT 
+      internship_posts_id AS post_id,
+      internship_title,
+      internship_location,
+      internship_duration,
+      internship_compensation,
+      internship_expired_date
+    FROM internship_posts 
+    WHERE company_id = ?
+  `;
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error("❌ Query error:", err);
+      return res.status(500).json(err);
+    }
     res.json(results);
   });
 });
