@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
 import Login from './pages/Login';
 import InternshipPosts from './pages/InternshipPosts';
 import InternshipPostDetail from './pages/InternshipPostDetail';
@@ -23,42 +23,55 @@ import AdminPositionForm from './pages/AdminPositionForm';
 import AdminPositionDetail from './pages/AdminPositionDetail';
 import './App.css';
 
+function InternshipPostDetailWrapper() {
+  const { id } = useParams();
+  return <InternshipPostDetail key={id} />;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50 text-gray-900">
+
         <Routes>
+
           <Route path="/" element={<Login />} />
-          
-          {/* Internship Posts Flow */}
+
+          {/* Internship Posts */}
           <Route path="/posts" element={<InternshipPosts />} />
-          <Route path="/posts/:id" element={<InternshipPostDetail />} />
+          <Route path="/posts/:id" element={<InternshipPostDetailWrapper />} />
+
           <Route path="/company/:id" element={<DetailCompany />} />
           <Route path="/company/:id/review" element={<CompanyReview />} />
-          
-          {/* Quiz Flow */}
+
+          {/* Quiz */}
           <Route path="/quiz" element={<CareerFitQuiz />} />
           <Route path="/quiz/start" element={<QuizPage />} />
           <Route path="/quiz/result" element={<ResultQuiz />} />
 
-          {/* User Settings */}
+          {/* User */}
           <Route path="/setting" element={<Setting />} />
-          
-          {/* Admin Flow */}
+
+          {/* Admin */}
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/internship-posts" element={<AdminInternshipPostList />} />
           <Route path="/admin/internship-posts/new" element={<AdminInternshipPostForm />} />
           <Route path="/admin/internship-posts/:id" element={<AdminInternshipPostDetail />} />
+
           <Route path="/admin/companies" element={<AdminCompanyList />} />
           <Route path="/admin/companies/new" element={<AdminCompanyForm />} />
           <Route path="/admin/companies/:id" element={<AdminCompanyDetail />} />
+
           <Route path="/admin/users" element={<AdminUserList />} />
           <Route path="/admin/users/new" element={<AdminUserForm />} />
           <Route path="/admin/users/:id" element={<AdminUserDetail />} />
+
           <Route path="/admin/positions" element={<AdminPositionList />} />
           <Route path="/admin/positions/new" element={<AdminPositionForm />} />
           <Route path="/admin/positions/:id" element={<AdminPositionDetail />} />
+
         </Routes>
+
       </div>
     </BrowserRouter>
   );
