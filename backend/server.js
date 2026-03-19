@@ -4,7 +4,7 @@ const mysql = require("mysql2");
 const cors = require("cors");
 
 const app = express();
-const PORT = 5001;
+const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -29,14 +29,12 @@ db.getConnection((err, connection) => {
   }
 });
 
-
 // ==================================================
 // LOGIN
 // ==================================================
 app.post("/api/login", (req, res) => {
 
   const { email, password } = req.body;
-  console.log("📨 Login request received:", { email, password });
 
   const sql = "SELECT * FROM account WHERE username = ?";
 
@@ -47,19 +45,15 @@ app.post("/api/login", (req, res) => {
     }
 
     if (results.length === 0) {
-      console.log("🔍 User not found for username:", email);
       return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
     }
 
     const user = results[0];
-    console.log("🔍 User found:", { username: user.username, role: user.role });
 
     if (password !== user.password) {
-      console.log("❌ Password mismatch for user:", email);
       return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
     }
 
-    console.log("✅ Login success for user:", email);
     res.json({
       message: "Login success",
       user: {
@@ -212,6 +206,82 @@ app.get("/api/posts/company/:id", (req, res) => {
   });
 });
 
+app.post("/api/reviews", (req, res) => {
+  let {
+    company_id,
+    student_id,
+    review_sum_rating,
+    review_work_rating,
+    review_life_rating,
+    review_commu_rating,
+    review_comment
+  } = req.body;
+
+  console.log("BODY:", req.body);
+
+  // ======================
+  // ✅ convert type
+  // ======================
+  company_id = Number(company_id);
+  student_id = Number(student_id);
+
+  review_sum_rating = Number(review_sum_rating) || 0;
+  review_work_rating = Number(review_work_rating) || 0;
+  review_life_rating = Number(review_life_rating) || 0;
+  review_commu_rating = Number(review_commu_rating) || 0;
+
+  // ======================
+  // ✅ validation
+  // ======================
+  if (!company_id || !student_id) {
+    return res.status(400).json({
+      message: "company_id และ student_id จำเป็นต้องมี"
+    });
+  }
+
+  // ⭐ clamp rating 0-5
+  const clamp = (val) => Math.max(0, Math.min(5, val));
+
+  review_sum_rating = clamp(review_sum_rating);
+  review_work_rating = clamp(review_work_rating);
+  review_life_rating = clamp(review_life_rating);
+  review_commu_rating = clamp(review_commu_rating);
+
+  // ======================
+  // ✅ SQL
+  // ======================
+  const sql = `
+    INSERT INTO review 
+    (company_id, student_id, review_sum_rating, review_work_rating, review_life_rating, review_commu_rating, review_comment, review_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+
+  db.query(
+    sql,
+    [
+      company_id,
+      student_id,
+      review_sum_rating,
+      review_work_rating,
+      review_life_rating,
+      review_commu_rating,
+      review_comment || ""
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Insert review error:", err);
+        return res.status(500).json({
+          error: err.message
+        });
+      }
+
+      res.json({
+        message: "✅ Review created",
+        review_id: result.insertId
+      });
+    }
+  );
+});
 // ==================================================
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);

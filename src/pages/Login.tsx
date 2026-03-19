@@ -10,14 +10,14 @@
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
 
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/api/login",
-        {
-          email: username,
-          password: password,
-        }
-      );
+      try {
+        const response = await axios.post(
+          "http://localhost:5000/api/login",
+          {
+            email: username,
+            password: password,
+          }
+        );
 
         localStorage.setItem("user", JSON.stringify(response.data.user));
         navigate("/posts");
@@ -95,4 +95,4 @@
     );
   }
 
-export default Login;
+  export default Login;

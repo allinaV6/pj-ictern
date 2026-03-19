@@ -53,8 +53,8 @@ export default function DetailCompany() {
         console.log(`Fetching data for company ID: ${id}`);
         
         const [companyRes, postsRes] = await Promise.all([
-          axios.get(`http://localhost:5001/api/company/${id}`),
-          axios.get(`http://localhost:5001/api/posts/company/${id}`)
+          axios.get(`http://localhost:5000/api/company/${id}`),
+          axios.get(`http://localhost:5000/api/posts/company/${id}`)
         ]);
         
         setCompany(companyRes.data);

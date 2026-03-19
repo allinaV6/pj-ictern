@@ -17,7 +17,6 @@ interface InternshipPostType {
   internship_working_method: string;
   internship_link?: string;
   internship_expired_date: string;
-  company_name: string;
 }
 
 function InternshipPosts() {
@@ -33,8 +32,8 @@ function InternshipPosts() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("Fetching posts from http://localhost:5001/api/posts...");
-    fetch("http://localhost:5001/api/posts")
+    console.log("Fetching posts from http://localhost:5000/api/posts...");
+    fetch("http://localhost:5000/api/posts")
       .then((res) => {
         if (!res.ok) {
           console.error("Fetch error, status:", res.status);
