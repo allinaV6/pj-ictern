@@ -3,75 +3,88 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Search, Info, Check } from 'lucide-react';
 
-// Mock data for positions
 const POSITIONS = [
   {
     id: 'ai-ml',
+    position_id: 1,
     title: 'AI / Machine Learning',
     description: 'ออกแบบและพัฒนาโมเดลที่เรียนรู้จากข้อมูล เพื่อช่วยให้ระบบตัดสินใจได้อย่างชาญฉลาด'
   },
   {
     id: 'backend',
+    position_id: 2,
     title: 'Backend Developer',
     description: 'พัฒนาโครงสร้างหลังบ้าน เช่น ระบบฐานข้อมูลและ API เพื่อให้เว็บ/แอปทำงานได้อย่างราบรื่น'
   },
   {
     id: 'devops',
+    position_id: 3,
     title: 'DevOps Engineer',
     description: 'ดูแลให้ระบบพัฒนาและการปล่อยงานทำงานอัตโนมัติ มีประสิทธิภาพ และเสถียรอยู่เสมอ'
   },
   {
     id: 'fullstack',
+    position_id: 4,
     title: 'Fullstack Developer',
     description: 'พัฒนาเว็บหรือแอปทั้งฝั่งหน้าและหลัง ครอบคลุมตั้งแต่การออกแบบจนถึงการ deploy'
   },
   {
     id: 'uxui',
+    position_id: 5,
     title: 'UX/UI Designer',
     description: 'ออกแบบประสบการณ์และหน้าตาเว็บ/แอปให้ใช้งานง่าย ดึงดูด และตอบโจทย์ผู้ใช้'
   },
   {
     id: 'data-eng',
+    position_id: 6,
     title: 'Data Engineering',
     description: 'สร้างและดูแลโครงสร้างข้อมูล ให้ทีมสามารถนำข้อมูลไปวิเคราะห์และใช้งานได้อย่างมีประสิทธิภาพ'
   },
   {
     id: 'cloud',
+    position_id: 7,
     title: 'Cloud Engineering',
     description: 'ดูแลโครงสร้างระบบบนคลาวด์ให้ปลอดภัย มีเสถียรภาพ และรองรับการขยายตัวของระบบ'
   },
   {
     id: 'frontend',
+    position_id: 8,
     title: 'Frontend Developer',
     description: 'พัฒนาและปรับปรุงส่วนติดต่อผู้ใช้ (UI) ให้ใช้งานง่าย ตอบสนองไว และสวยงามบนทุกอุปกรณ์'
   },
   {
     id: 'iot',
+    position_id: 9,
     title: 'IoT Developer',
     description: 'พัฒนาอุปกรณ์และระบบที่เชื่อมต่อกับอินเทอร์เน็ต เพื่อสร้างนวัตกรรมที่เชื่อมโยงโลกจริงกับดิจิทัล'
   },
   {
     id: 'data-science',
+    position_id: 10,
     title: 'Data Science',
     description: 'วิเคราะห์ข้อมูลเพื่อหาแนวโน้มหรือคำตอบเชิงธุรกิจ'
   },
   {
     id: 'qa',
+    position_id: 11,
     title: 'QA Engineer (Quality Assurance)',
     description: 'ทดสอบ ตรวจสอบ และรับรองคุณภาพของซอฟต์แวร์ให้ทำงานถูกต้องและปราศจากบั๊ก'
   },
   {
     id: 'ba',
+    position_id: 12,
     title: 'Business Analyst',
     description: 'ทำความเข้าใจความต้องการของธุรกิจ วิเคราะห์ปัญหา และแนะนำแนวทางปรับปรุงด้วยเทคโนโลยี'
   },
   {
     id: 'cybersecurity',
+    position_id: 13,
     title: 'Cybersecurity',
     description: 'ปกป้องระบบและข้อมูลจากภัยคุกคามออนไลน์ ตรวจจับและจัดการความเสี่ยงด้านความปลอดภัย'
   },
   {
     id: 'data-analyst',
+    position_id: 14,
     title: 'Data Analyst',
     description: 'วิเคราะห์และตีความข้อมูล เพื่อช่วยให้ทีมเข้าใจแนวโน้มและตัดสินใจได้ดีขึ้น เหมาะกับคนชอบตัวเลขและการหาความหมายจากข้อมูล'
   }
