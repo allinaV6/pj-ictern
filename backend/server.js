@@ -34,36 +34,30 @@ const db = mysql.createPool({
 // ==================================================
 // LOGIN
 // ==================================================
-app.post("/api/login", async (req, res) => {
+app.post("/api/auth/firebase-login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email } = req.body;
 
-    const sql = "SELECT * FROM account WHERE username = ?";
-    const [results] = await db.query(sql, [email]);
+    console.log("📩 login request:", email);
 
-    if (results.length === 0) {
-      return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
-    }
+    const [rows] = await db.query(
+      "SELECT * FROM student WHERE email = ?",
+      [email]
+    );
 
-    const user = results[0];
-
-    if (password !== user.password) {
-      return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: "User not found"
+      });
     }
 
     res.json({
-      message: "Login success",
-      user: {
-        id: user.account_id,
-        username: user.username,
-        role: user.role,
-        status: user.account_status,
-      },
+      user: rows[0]
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json(err);
+    console.error("❌ ERROR:", err);
+    res.status(500).json({ error: "server error" });
   }
 });
 
