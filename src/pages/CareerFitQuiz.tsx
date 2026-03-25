@@ -139,9 +139,12 @@ export default function CareerFitQuiz() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <button className="px-5 py-2.5 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors whitespace-nowrap shadow-sm text-base">
-              ดูผลลัพธ์ครั้งล่าสุด
-            </button>
+            <button
+              className="px-5 py-2.5 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors whitespace-nowrap shadow-sm text-base"
+              onClick={() => navigate('/quiz/result')}
+>
+  ดูผลลัพธ์ครั้งล่าสุด
+</button>
           </div>
         </div>
       </div>

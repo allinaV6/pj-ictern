@@ -188,8 +188,9 @@ app.get("/api/posts/company/:id", async (req, res) => {
   }
 });
 
+
 // ==================================================
-// GET REVIEWS
+// GET REVIEWS (FIXED + JOIN STUDENT)
 // ==================================================
 app.get("/api/reviews/company/:id", async (req, res) => {
   try {
@@ -197,24 +198,30 @@ app.get("/api/reviews/company/:id", async (req, res) => {
 
     const sql = `
       SELECT 
-        review_id AS id,
-        review_sum_rating,
-        review_work_rating,
-        review_life_rating,
-        review_commu_rating,
-        review_comment,
-        review_date AS created_at
-      FROM review
-      WHERE company_id = ?
-      ORDER BY review_date DESC
+        r.review_id AS review_id,
+        s.student_name AS reviewer_name,   -- ✅ ชื่อผู้รีวิว
+        r.review_sum_rating AS rating,     -- ✅ คะแนนรวม
+        r.review_work_rating,
+        r.review_life_rating,
+        r.review_commu_rating,
+        r.review_comment AS comment,
+        r.review_date AS created_at
+      FROM review r
+      LEFT JOIN student s 
+        ON r.student_id = s.student_id
+      WHERE r.company_id = ?
+      ORDER BY r.review_date DESC
     `;
 
     const [rows] = await db.query(sql, [companyId]);
+
     res.json(rows);
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "fetch reviews error" });
+    console.error("❌ GET REVIEWS ERROR:", err);
+    res.status(500).json({
+      error: "fetch reviews error"
+    });
   }
 });
 
@@ -263,13 +270,16 @@ app.post("/api/reviews", async (req, res) => {
   }
 });
 
-// ==================================================
-// GET QUIZ QUESTIONS
-// ==================================================
+// ===============================
+// GET QUESTIONS
+// ===============================
 app.get('/api/questions', async (req, res) => {
   try {
     const { positions } = req.query;
 
+    if (!positions) {
+      return res.status(400).json({ message: "positions required" });
+    }
     const positionIds = positions.split(',').map(Number);
     const results = [];
 
@@ -277,7 +287,7 @@ app.get('/api/questions', async (req, res) => {
       const [rows] = await db.query(
         `SELECT 
           question_id AS id,
-          quiz_question as question_text,
+          quiz_question AS question_text,
           position_id
          FROM quiz_question 
          WHERE position_id = ? 
@@ -292,11 +302,151 @@ app.get('/api/questions', async (req, res) => {
     res.json(results);
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ GET QUESTIONS ERROR:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
+
+// ==================================================
+// SUBMIT QUIZ (SAVE SCORE)
+// ==================================================
+app.post("/api/quiz/submit", async (req, res) => {
+  try {
+    const { student_id, positions, answers } = req.body;
+
+    if (!student_id || !positions || !answers) {
+      return res.status(400).json({ message: "missing data" });
+    }
+
+    // =========================
+    // 1️⃣ CREATE QUIZ
+    // =========================
+    const [quizResult] = await db.query(
+      `INSERT INTO career_fit_quiz 
+      (student_id, position1, position2, position3)
+      VALUES (?, ?, ?, ?)`,
+      [student_id, positions[0], positions[1], positions[2]]
+    );
+
+    const quiz_id = quizResult.insertId;
+
+    // =========================
+    // 2️⃣ CALCULATE SCORE
+    // =========================
+    let scoreMap = {};
+
+    for (const ans of answers) {
+      const [q] = await db.query(
+        `SELECT position_id 
+         FROM quiz_question 
+         WHERE question_id = ?`,
+        [ans.question_id]
+      );
+
+      if (!q.length) continue;
+
+      const pos = q[0].position_id;
+
+      if (!scoreMap[pos]) scoreMap[pos] = 0;
+      scoreMap[pos] += ans.answer;
+    }
+
+    const score1 = scoreMap[positions[0]] || 0;
+    const score2 = scoreMap[positions[1]] || 0;
+    const score3 = scoreMap[positions[2]] || 0;
+
+    // =========================
+    // 3️⃣ SAVE RESULT
+    // =========================
+    await db.query(
+      `INSERT INTO quiz_result
+      (student_id, quiz_id, position_skill, position1, position2, position3, score1, score2, score3, quiz_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        student_id,
+        quiz_id,
+        "", // กัน error NOT NULL
+        positions[0],
+        positions[1],
+        positions[2],
+        score1,
+        score2,
+        score3
+      ]
+    );
+
+    res.json({
+      message: "saved",
+      quiz_id,
+      score1,
+      score2,
+      score3
+    });
+
+  } catch (err) {
+    console.error("❌ SUBMIT ERROR:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+
+// ==================================================
+// GET RESULT QUIZ (ล่าสุดของ user)
+// ==================================================
+app.get("/api/quiz/result/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+
+    const [rows] = await db.query(
+      `SELECT *
+       FROM quiz_result
+       WHERE student_id = ?
+       ORDER BY quiz_date DESC
+       LIMIT 1`,
+      [student_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "no result" });
+    }
+
+    res.json(rows[0]);
+
+  } catch (err) {
+    console.error("❌ RESULT ERROR:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+
+// ==================================================
+// GET POSITION BY IDS (สำหรับหน้า RESULT)
+// ==================================================
+app.get("/api/positions/by-ids", async (req, res) => {
+  try {
+    const { ids } = req.query;
+
+    if (!ids) {
+      return res.status(400).json({ message: "ids required" });
+    }
+
+    const idArray = ids.split(',').map(Number);
+
+    const [rows] = await db.query(
+      `SELECT position_id, position_name, position_skill
+       FROM position
+       WHERE position_id IN (?)`,
+      [idArray]
+    );
+
+    res.json(rows);
+
+  } catch (err) {
+    console.error("❌ POSITION ERROR:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
 // ==================================================
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);

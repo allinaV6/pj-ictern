@@ -36,9 +36,12 @@ export default function DetailCompany() {
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [company, setCompany] = useState<CompanyData | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [activeJobs, setActiveJobs] = useState<JobData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [avgRating, setAvgRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,13 +55,16 @@ export default function DetailCompany() {
         setLoading(true);
         console.log(`Fetching data for company ID: ${id}`);
         
-        const [companyRes, postsRes] = await Promise.all([
+        const [companyRes, postsRes, reviewRes] = await Promise.all([
           axios.get(`http://localhost:5000/api/company/${id}`),
-          axios.get(`http://localhost:5000/api/posts/company/${id}`)
+          axios.get(`http://localhost:5000/api/posts/company/${id}`),
+          axios.get(`http://localhost:5000/api/reviews/company/${id}`) // ✅ เพิ่ม
         ]);
+
         
         setCompany(companyRes.data);
         setActiveJobs(postsRes.data);
+        setReviews(reviewRes.data);
         setError("");
       } catch (err) {
         console.error("Error fetching company data:", err);
@@ -70,8 +76,6 @@ export default function DetailCompany() {
 
     fetchData();
   }, [id]);
-
-  const reviews: any[] = [];
 
   if (loading) {
     return (
@@ -233,19 +237,50 @@ export default function DetailCompany() {
              </Link>
           </div>
 
-          <div className="space-y-4">
-            {reviews.length > 0 ? (
-              reviews.map(review => (
-                <div key={review.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative">
-                  {/* ... existing review content ... */}
-                </div>
-              ))
-            ) : (
-              <div className="bg-white p-12 rounded-xl border border-dashed border-gray-200 text-center flex flex-col items-center justify-center text-gray-400">
-                <p className="text-sm">ยังไม่มีข้อมูลรีวิวในขณะนี้</p>
-              </div>
-            )}
+<div className="space-y-4">
+  {reviews.length > 0 ? (
+    reviews.map((review: any) => (
+      <div
+        key={review.id}
+        className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative"
+      >
+
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="font-bold text-blue-900">
+            Anonymous
+          </h3>
+
+          <div className="text-yellow-500 font-bold flex items-center gap-1">
+           ⭐ {review.review_sum_rating}
           </div>
+        </div>
+
+        {/* COMMENT */}
+        <p className="text-gray-700 mb-3 leading-relaxed">
+          {review.review_comment}
+        </p>
+
+        {/* DETAIL */}
+        <div className="text-sm text-gray-500 flex gap-4 mb-2">
+          <span>Work: {review.review_work_rating}</span>
+          <span>Life: {review.review_life_rating}</span>
+          <span>Social: {review.review_commu_rating}</span>
+        </div>
+
+        {/* DATE */}
+        <p className="text-xs text-gray-400">
+              {new Date(review.created_at).toLocaleDateString('th-TH')}
+           </p>
+
+         </div>
+        ))
+         ) : (
+           <div className="bg-white p-12 rounded-xl border border-dashed border-gray-200 text-center text-gray-400">
+         <p className="text-sm">ยังไม่มีข้อมูลรีวิวในขณะนี้</p>
+          </div>
+       )}
+      </div>
         </div>
       </div>
 

@@ -33,6 +33,22 @@ export default function QuizPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
+  // ✅ user
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  // =========================
+  // ✅ check login
+  // =========================
+  useEffect(() => {
+    if (!user?.student_id) {
+      alert("กรุณา login ก่อน");
+      navigate("/");
+    }
+  }, []);
+
+  // =========================
+  // ✅ fetch questions
+  // =========================
   useEffect(() => {
     if (!selectedPositions || selectedPositions.length === 0) {
       navigate('/quiz');
@@ -44,22 +60,32 @@ export default function QuizPage() {
         const ids = selectedPositions.map(p => p.position_id).join(',');
 
         const res = await fetch(`http://localhost:5000/api/questions?positions=${ids}`);
+
+        if (!res.ok) {
+          throw new Error("โหลดคำถามไม่สำเร็จ");
+        }
+
         const data = await res.json();
 
         const shuffled = data.sort(() => Math.random() - 0.5);
         setQuestions(shuffled);
+
       } catch (err) {
         console.error(err);
+        alert("โหลดคำถามไม่สำเร็จ");
       }
     };
 
     fetchQuestions();
   }, [selectedPositions, navigate]);
 
+  // =========================
+  // ✅ loading
+  // =========================
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500 text-lg">กำลังโหลดคำถาม...</p>
+      <div className="p-10 text-center text-gray-500">
+        กำลังโหลดคำถาม...
       </div>
     );
   }
@@ -67,6 +93,9 @@ export default function QuizPage() {
   const currentQuestion = questions[currentQuestionIndex];
   const selectedAnswer = answers[currentQuestion.id];
 
+  // =========================
+  // ✅ handle answer
+  // =========================
   const handleAnswer = (value: number) => {
     setAnswers(prev => ({
       ...prev,
@@ -74,6 +103,9 @@ export default function QuizPage() {
     }));
   };
 
+  // =========================
+  // ✅ next
+  // =========================
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -82,98 +114,93 @@ export default function QuizPage() {
     }
   };
 
+  // =========================
+  // ✅ prev
+  // =========================
   const handlePrev = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    setCurrentQuestionIndex(prev => Math.max(prev - 1, 0));
+  };
+
+  // =========================
+  // ✅ submit
+  // =========================
+  const handleSubmit = async () => {
+    try {
+      if (!user?.student_id) {
+        alert("กรุณา login ก่อน");
+        navigate("/");
+        return;
+      }
+
+      const answerList = questions.map(q => ({
+        question_id: q.id,
+        answer: answers[q.id] || 0   // ✅ กัน undefined
+      }));
+
+      const payload = {
+        student_id: user.student_id,
+        positions: selectedPositions.map(p => p.position_id),
+        answers: answerList
+      };
+
+      const res = await fetch("http://localhost:5000/api/quiz/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        alert("บันทึกไม่สำเร็จ");
+        return;
+      }
+
+      alert("บันทึกสำเร็จ ✅");
+
+      navigate('/quiz/result');
+
+    } catch (err) {
+      console.error(err);
+      alert("เกิดข้อผิดพลาด");
     }
   };
 
-  const handleSubmit = () => {
-    navigate('/quiz/result', { state: { answers, questions } });
-  };
-
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-
+  // =========================
+  // UI
+  // =========================
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24">
       <Navbar />
 
-      {/* 🔵 Header */}
-      <div className="bg-blue-900 text-white py-10 px-4">
-        <div className="max-w-6xl mx-auto text-center md:text-left">
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">
-            แบบทดสอบรวมของตำแหน่งที่คุณเลือก
-          </h1>
-          <p className="text-blue-200 text-lg">
-            {selectedPositions.map(p => p.title).join(', ')}
-          </p>
-        </div>
-      </div>
+      <div className="max-w-3xl mx-auto mt-10 bg-white p-10 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-6">
+          {currentQuestionIndex + 1}. {currentQuestion.question_text}
+        </h2>
 
-      {/* 🟦 Question Card */}
-      <div className="max-w-3xl mx-auto px-4 mt-8">
-        <div className="bg-white rounded-lg shadow-sm border p-10 min-h-[420px] flex flex-col">
-
-          {/* 🔥 Progress bar */}
-          <div className="w-full bg-gray-200 h-2 rounded mb-6">
-            <div
-              className="bg-blue-600 h-2 rounded"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          {/* 🔥 Question */}
-          <h2 className="text-2xl font-bold text-blue-900 mb-8">
-            {currentQuestionIndex + 1}. {currentQuestion.question_text}
-          </h2>
-
-          {/* 🔥 Choices */}
-          <div className="space-y-3 flex-grow">
-            {CHOICES.map(choice => (
-              <button
-                key={choice.value}
-                onClick={() => handleAnswer(choice.value)}
-                className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                  selectedAnswer === choice.value
-                    ? 'bg-blue-100 border-blue-500 text-blue-900 font-bold'
-                    : 'bg-gray-50 border-transparent hover:bg-gray-100 text-gray-700'
-                }`}
-              >
-                {choice.label}
-              </button>
-            ))}
-          </div>
+        <div className="space-y-3">
+          {CHOICES.map(choice => (
+            <button
+              key={choice.value}
+              onClick={() => handleAnswer(choice.value)}
+              className={`w-full p-4 border rounded ${
+                selectedAnswer === choice.value
+                  ? 'bg-blue-100 border-blue-500'
+                  : ''
+              }`}
+            >
+              {choice.label}
+            </button>
+          ))}
         </div>
 
-        {/* 🔽 Navigation */}
-        <div className="flex items-center justify-between mt-8">
-          <button
-            onClick={handlePrev}
-            disabled={currentQuestionIndex === 0}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg border ${
-              currentQuestionIndex === 0
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <ArrowLeft size={20} /> ก่อนหน้า
+        <div className="flex justify-between mt-6">
+          <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
+            ก่อนหน้า
           </button>
 
-          <div className="font-bold text-gray-700">
-            คำถาม {currentQuestionIndex + 1}/{questions.length}
-          </div>
-
-          <button
-            onClick={handleNext}
-            disabled={!selectedAnswer}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold text-white ${
-              !selectedAnswer
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-blue-900 hover:bg-blue-800'
-            }`}
-          >
-            {currentQuestionIndex === questions.length - 1 ? 'ส่งคำตอบ' : 'ถัดไป'}
-            {currentQuestionIndex !== questions.length - 1 && <ArrowRight size={20} />}
+          <button onClick={handleNext} disabled={!selectedAnswer}>
+            {currentQuestionIndex === questions.length - 1 ? 'ส่ง' : 'ถัดไป'}
           </button>
         </div>
       </div>

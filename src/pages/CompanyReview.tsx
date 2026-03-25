@@ -21,6 +21,9 @@ export default function CompanyReview() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  // ✅ ดึง user จาก localStorage
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
   const companyName = "Creative Digital Agency Co., Ltd.";
   const jobTitle = "UX/UI Design Intern";
   const duration = "6 เดือน";
@@ -69,9 +72,16 @@ export default function CompanyReview() {
         return;
       }
 
+      // ✅ เช็ค user login
+      if (!user?.student_id) {
+        alert("กรุณาเข้าสู่ระบบก่อน");
+        navigate("/");
+        return;
+      }
+
       const payload = {
         company_id: companyId,
-        student_id: 6587019,
+        student_id: user.student_id, // 🔥 ใช้ user จริง
         review_sum_rating: parseFloat(averageRating),
         review_work_rating: getCategoryAvg([
           "work_challenge","work_creativity","work_growth","work_tools"
@@ -153,7 +163,6 @@ export default function CompanyReview() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Work */}
             <div className="border rounded p-4">
               <h3 className="font-bold text-center mb-4">ด้านงาน</h3>
               <div className="space-y-3">
@@ -164,7 +173,6 @@ export default function CompanyReview() {
               </div>
             </div>
 
-            {/* Life */}
             <div className="border rounded p-4">
               <h3 className="font-bold text-center mb-4">ด้านชีวิต</h3>
               <div className="space-y-3">
@@ -175,7 +183,6 @@ export default function CompanyReview() {
               </div>
             </div>
 
-            {/* Social */}
             <div className="border rounded p-4">
               <h3 className="font-bold text-center mb-4">ด้านสังคม</h3>
               <div className="space-y-3">
