@@ -21,7 +21,7 @@ export default function Login() {
     try {
       setLoading(true);
 
-      // 🔥 1. login ด้วย Firebase
+      // 🔥 1. Firebase login
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
@@ -32,7 +32,7 @@ export default function Login() {
 
       console.log("✅ Firebase login:", firebaseUser.email);
 
-      // 🔥 2. ยิงไป backend เพื่อหา student
+      // 🔥 2. ยิงไป backend
       const res = await fetch("http://localhost:5000/api/auth/firebase-login", {
         method: "POST",
         headers: {
@@ -46,18 +46,20 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert("ไม่มี user ในระบบ (MySQL)");
+        alert("ไม่พบข้อมูลในระบบ");
         return;
       }
 
       console.log("✅ MySQL user:", data.user);
+      console.log("🔐 role:", data.role);
 
-      // 🔥 3. เก็บ user (มี student_id)
+      // 🔥 3. เก็บ user + role
       localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("role", data.role);
 
       alert("เข้าสู่ระบบสำเร็จ ✅");
 
-      // 🔥 4. ไปหน้า posts
+      // 🔥 4. ทุกคนไปหน้าเดียวกัน
       navigate("/posts");
 
     } catch (error: any) {
