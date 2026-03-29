@@ -40,19 +40,37 @@ app.post("/api/auth/firebase-login", async (req, res) => {
 
     console.log("📩 login request:", email);
 
-    const [rows] = await db.query(
+    // 🔥 เช็ค admin ก่อน
+    const [adminRows] = await db.query(
+      "SELECT * FROM admin WHERE email = ?",
+      [email]
+    );
+
+    if (adminRows.length > 0) {
+      console.log("✅ ADMIN LOGIN");
+      return res.json({
+        role: "admin",
+        user: adminRows[0]
+      });
+    }
+
+    // 🔥 ถ้าไม่ใช่ admin → เช็ค student
+    const [studentRows] = await db.query(
       "SELECT * FROM student WHERE email = ?",
       [email]
     );
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        message: "User not found"
+    if (studentRows.length > 0) {
+      console.log("✅ STUDENT LOGIN");
+      return res.json({
+        role: "student",
+        user: studentRows[0]
       });
     }
 
-    res.json({
-      user: rows[0]
+    // ❌ ไม่เจอ
+    return res.status(404).json({
+      message: "User not found"
     });
 
   } catch (err) {
