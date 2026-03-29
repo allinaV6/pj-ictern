@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { Search, RotateCcw } from 'lucide-react';
 
 interface Position {
   id: string;
@@ -111,7 +110,7 @@ export default function ResultQuiz() {
                     */}
                     
                     {/* Re-ordering for display: [Runner-up, Winner, Last] */}
-                    {[results[1], results[0], results[2]].filter(Boolean).map((item, index) => {
+                    {[results[1], results[0], results[2]].filter(Boolean).map((item) => {
                         // Colors based on score/position in display
                         const isWinner = item.id === winner.id;
                         let barColor = 'bg-blue-400'; // Default low

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { MapPin, Phone, Mail, Globe, ArrowLeft, Star, Info, X, CheckCircle, FileText, Calendar, Clock } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Calendar, Clock } from 'lucide-react';
 import axios from 'axios';
 
 interface CompanyData {
@@ -27,13 +27,17 @@ interface JobData {
   internship_requirements: string;
   internship_working_method: string;
   internship_expired_date: string;
+  internship_status?: number;
 }
+
+type Review = {
+  id: number;
+};
 
 export default function DetailCompany() {
   const { id } = useParams();
-  const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
   const [showDefinitions, setShowDefinitions] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<any | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [company, setCompany] = useState<CompanyData | null>(null);
   const [activeJobs, setActiveJobs] = useState<JobData[]>([]);
@@ -53,8 +57,8 @@ export default function DetailCompany() {
         console.log(`Fetching data for company ID: ${id}`);
         
         const [companyRes, postsRes] = await Promise.all([
-          axios.get(`http://localhost:5001/api/company/${id}`),
-          axios.get(`http://localhost:5001/api/posts/company/${id}`)
+          axios.get(`http://localhost:5002/api/company/${id}`),
+          axios.get(`http://localhost:5002/api/posts/company/${id}`)
         ]);
         
         setCompany(companyRes.data);
@@ -71,7 +75,7 @@ export default function DetailCompany() {
     fetchData();
   }, [id]);
 
-  const reviews: any[] = [];
+  const reviews: Review[] = [];
 
   if (loading) {
     return (
@@ -164,29 +168,43 @@ export default function DetailCompany() {
             ประกาศรับสมัครงาน({activeJobs.length})
           </h2>
           <div className="space-y-4">
-            {activeJobs.length > 0 ? activeJobs.map(job => (
-              <div key={job.post_id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                <div className="flex flex-col gap-2 mb-4">
-                  <h3 className="text-blue-900 font-bold text-lg">{job.internship_title}</h3>
-                  <div className="text-xs text-gray-500 flex items-center gap-2">
-                    <span>ค่าตอบแทน: {job.internship_compensation || 'N/A'}</span>
-                    <span className="text-gray-300">|</span>
-                    <span>ระยะเวลา: {job.internship_duration} เดือนขึ้นไป</span>
-                    <span className="text-gray-300">|</span>
-                    <span>ประกาศเมื่อ: 28/10/2025</span>
+            {activeJobs.length > 0 ? activeJobs.map(job => {
+              const statusValue = Number(job.internship_status ?? 1);
+              const isOpen = statusValue === 1;
+              const statusText = isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร';
+              const statusStyles = isOpen
+                ? 'bg-green-100 text-green-700 border-green-200'
+                : 'bg-red-100 text-red-700 border-red-200';
+
+              return (
+                <div key={job.post_id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex flex-col gap-2 mb-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-blue-900 font-bold text-lg">{job.internship_title}</h3>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusStyles}`}>
+                        {statusText}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <span>ค่าตอบแทน: {job.internship_compensation || 'N/A'}</span>
+                      <span className="text-gray-300">|</span>
+                      <span>ระยะเวลา: {job.internship_duration} เดือนขึ้นไป</span>
+                      <span className="text-gray-300">|</span>
+                      <span>ประกาศเมื่อ: 28/10/2025</span>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setSelectedJob(job);
+                      setIsModalOpen(true);
+                    }}
+                    className="inline-block bg-[#1a3a8a] text-white px-8 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition-colors shadow-sm"
+                  >
+                    ดูรายละเอียด
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedJob(job);
-                    setIsModalOpen(true);
-                  }}
-                  className="inline-block bg-[#1a3a8a] text-white px-8 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition-colors shadow-sm"
-                >
-                  ดูรายละเอียด
-                </button>
-              </div>
-            )) : (
+              );
+            }) : (
               <div className="bg-white p-10 rounded-xl border border-dashed border-gray-300 text-center text-gray-500">
                 ขณะนี้ยังไม่มีประกาศรับสมัครงาน
               </div>
@@ -282,10 +300,17 @@ export default function DetailCompany() {
 
               {/* Badges/Tags Row */}
               <div className="flex flex-wrap gap-4 mb-8 text-[13px]">
-                <div className="flex items-center gap-1.5 text-green-600 font-bold bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
-                  <CheckCircle size={16} />
-                  เปิดรับสมัคร
-                </div>
+                {Number(selectedJob.internship_status ?? 1) === 1 ? (
+                  <div className="flex items-center gap-1.5 text-green-600 font-bold bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                    <CheckCircle size={16} />
+                    เปิดรับสมัคร
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-red-600 font-bold bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                    <X size={16} />
+                    ปิดรับสมัคร
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                   <FileText size={16} />
                   {selectedJob.internship_working_method || 'Onsite'}

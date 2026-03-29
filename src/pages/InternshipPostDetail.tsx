@@ -26,10 +26,6 @@ function InternshipPostDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-
-    setPost(null);
-    setLoading(true);
-
     fetch(`http://localhost:5000/api/posts/${id}`)
       .then((res) => res.json())
       .then((data) => {

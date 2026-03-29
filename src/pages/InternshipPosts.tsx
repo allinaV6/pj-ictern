@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
-import { Search, Heart, MapPin, Clock, Calendar, FileText, Info, Star, X, CheckCircle } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface InternshipPostType {
   post_id: number;
   company_id: number;
   internship_title: string;
-  company_name: string;
+  mou?: number;
+  internship_status?: number;
   internship_location: string;
   internship_duration: string | number;
   internship_description: string;
@@ -33,8 +34,8 @@ function InternshipPosts() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("Fetching posts from http://localhost:5001/api/posts...");
-    fetch("http://localhost:5001/api/posts")
+    console.log("Fetching posts from http://localhost:5002/api/posts...");
+    fetch("http://localhost:5002/api/posts")
       .then((res) => {
         if (!res.ok) {
           console.error("Fetch error, status:", res.status);
@@ -114,7 +115,7 @@ function InternshipPosts() {
             <div className="relative flex-grow min-w-[300px]">
               <input
                 type="text"
-                placeholder="ค้นหาตำแหน่งฝึกงาน"
+                placeholder="ค้นหาตำแหน่งฝึกงานหรือบริษัท"
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -151,6 +152,8 @@ function InternshipPosts() {
 
           {filteredPosts.map((post) => {
             const isFavorite = favoriteIds.includes(post.post_id);
+            const statusValue = Number(post.internship_status ?? 1);
+            const isOpen = statusValue === 1;
 
             return (
               <div
@@ -161,10 +164,12 @@ function InternshipPosts() {
                   <div className="flex-grow">
                     <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
                       {post.internship_title}
-                      <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 text-[10px] font-bold tracking-wider shadow-sm">
-                        <Star size={10} className="fill-current" />
-                        MOU
-                      </div>
+                      {post.mou === 1 && (
+                        <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 text-[10px] font-bold tracking-wider shadow-sm">
+                          <Star size={10} className="fill-current" />
+                          MOU
+                        </div>
+                      )}
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">
                       {post.company_name}
@@ -184,42 +189,42 @@ function InternshipPosts() {
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
+                  <div className="flex items-center gap-1 text-gray-400 text-[15px] font-bold">
                     ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
                   </div>
-                  <div className="flex items-center gap-1 text-green-600 text-[13px] font-medium">
-                    <div className="w-4 h-4 rounded-full border-2 border-green-600 flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
+                  <div className={`flex items-center gap-1 text-[15px] font-medium ${isOpen ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isOpen ? 'border-green-600' : 'border-red-600'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${isOpen ? 'bg-green-600' : 'bg-red-600'}`}></div>
                     </div>
-                    เปิดรับสมัคร
+                    {isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                   </div>
                 </div>
 
-                <p className="text-gray-600 text-[13px] leading-relaxed line-clamp-3 mb-6">
+                <p className="text-gray-600 text-[15px] leading-relaxed line-clamp-3 mb-6">
                   {post.internship_description}
                 </p>
 
                 <div className="grid grid-cols-2 gap-y-3 mb-6">
-                  <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <MapPin size={16} className="text-red-500" />
                     {post.internship_location}
                   </div>
-                  <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <Clock size={16} className="text-gray-400" />
                     ฝึกงาน {post.internship_duration} เดือนขึ้นไป
                   </div>
-                  <div className="flex items-center gap-2 text-[13px] text-green-600 font-semibold">
+                  <div className="flex items-center gap-2 text-[15px] text-green-600 font-semibold">
                     ฿ {post.internship_compensation}
                   </div>
-                  <div className="flex items-center gap-2 text-[13px] text-gray-500">
+                  <div className="flex items-center gap-2 text-[15px] text-gray-500">
                     <Calendar size={16} className="text-gray-400" />
                     ประกาศเมื่อ: {post.internship_expired_date}
                   </div>
-                  <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <FileText size={16} className="text-gray-400" />
                     {post.internship_working_method}
                   </div>
-                  <button className="text-[13px] text-gray-800 font-bold underline text-left flex items-center gap-1">
+                  <button className="text-[15px] text-gray-800 font-bold underline text-left flex items-center gap-1">
                     <FileText size={14} />
                     รายละเอียดเพิ่มเติม
                   </button>
@@ -260,40 +265,47 @@ function InternshipPosts() {
             </button>
 
             <div className="overflow-y-auto p-8 pt-10">
-              {/* Header Info */}
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedPost.internship_title}</h2>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
-                  <div className="flex items-center gap-1 text-gray-400 font-bold">
-                    ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
-                  </div>
-                </div>
-              </div>
+              {(() => {
+                const isOpen = (selectedPost.internship_status ?? 1) === 1;
+                return (
+                  <>
+                    {/* Header Info */}
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedPost.internship_title}</h2>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
+                        <div className="flex items-center gap-1 text-gray-400 font-bold">
+                          ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Badges/Tags Row */}
-              <div className="flex flex-wrap gap-4 mb-8 text-[13px]">
-                <div className="flex items-center gap-1.5 text-green-600 font-bold bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
-                  <CheckCircle size={16} />
-                  เปิดรับสมัคร
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <FileText size={16} />
-                  {selectedPost.internship_working_method}
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <MapPin size={16} className="text-red-500" />
-                  {selectedPost.internship_location}
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <Clock size={16} />
-                  {selectedPost.internship_compensation}
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <Calendar size={16} />
-                  ประกาศเมื่อ: {selectedPost.internship_expired_date}
-                </div>
-              </div>
+                    {/* Badges/Tags Row */}
+                    <div className="flex flex-wrap gap-4 mb-8 text-[15px]">
+                      <div className={`flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-lg border ${isOpen ? 'text-green-600 bg-green-50 border-green-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
+                        {isOpen ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                        {isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <FileText size={16} />
+                        {selectedPost.internship_working_method}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <MapPin size={16} className="text-red-500" />
+                        {selectedPost.internship_location}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <Clock size={16} />
+                        {selectedPost.internship_compensation}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <Calendar size={16} />
+                        ประกาศเมื่อ: {selectedPost.internship_expired_date}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Separator Line (Top) */}
               <div className="h-[1.5px] bg-gray-300 w-full mb-8 opacity-80"></div>

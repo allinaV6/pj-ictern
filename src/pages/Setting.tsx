@@ -1,5 +1,5 @@
 import Navbar from '../components/Navbar';
-import { User, CheckSquare, Square } from 'lucide-react';
+import { User, CheckSquare } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Setting() {

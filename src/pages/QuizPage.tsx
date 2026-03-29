@@ -84,7 +84,6 @@ export default function QuizPage() {
     navigate('/quiz/result', { state: { selectedPositions } });
   };
 
-  const progress = ((currentQuestionIndex + 1) / QUESTIONS.length) * 100;
   const currentQuestion = QUESTIONS[currentQuestionIndex];
   const selectedAnswer = answers[currentQuestion.id];
 

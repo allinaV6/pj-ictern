@@ -138,7 +138,7 @@ export default function CareerFitQuiz() {
         <h2 className="text-gray-700 mb-4 text-lg">รายการตำแหน่งงานที่มีทั้งหมด {filteredPositions.length} ตำแหน่ง</h2>
         
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          {filteredPositions.map((position, index) => {
+          {filteredPositions.map((position) => {
             const isSelected = selectedPositions.includes(position.id);
             const isDisabled = !isSelected && selectedPositions.length >= 3;
 

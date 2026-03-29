@@ -13,11 +13,22 @@ export default function AdminLayout({ children }: Props) {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const userRole = user?.role || "";
+
   const isDashboard = location.pathname === '/admin/dashboard';
   const isInternshipPosts = location.pathname.startsWith('/admin/internship-posts');
   const isCompanies = location.pathname.startsWith('/admin/companies');
   const isUsers = location.pathname.startsWith('/admin/users');
   const isPositions = location.pathname.startsWith('/admin/positions');
+
+  // RBAC permissions based on the table
+  const canSeeDashboard = ["Super Admin", "Dashboard Admin"].includes(userRole);
+  const canSeePosts = ["Super Admin", "Post Admin"].includes(userRole);
+  const canSeeCompanies = ["Super Admin", "Company Admin"].includes(userRole);
+  const canSeeUsers = ["Super Admin"].includes(userRole);
+  const canSeePositions = ["Super Admin", "Position Admin"].includes(userRole);
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -41,12 +52,12 @@ export default function AdminLayout({ children }: Props) {
       >
         <div className="p-6 border-b border-gray-100 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-sm font-bold text-gray-600">
-              DS
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">
+              {user?.username?.substring(0, 2).toUpperCase() || "AD"}
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">Darin Supanawong</h3>
-              <p className="text-xs text-blue-600 font-medium">Super Admin</p>
+              <h3 className="font-bold text-gray-900">{user?.username || "Admin"}</h3>
+              <p className="text-xs text-blue-600 font-medium">{userRole}</p>
             </div>
           </div>
           <button
@@ -58,36 +69,46 @@ export default function AdminLayout({ children }: Props) {
         </div>
 
         <div className="p-4 space-y-2">
-          <SidebarItem
-            icon={<Home size={20} />}
-            label="Dashboard"
-            active={isDashboard}
-            onClick={() => navigate('/admin/dashboard')}
-          />
-          <SidebarItem
-            icon={<FileText size={20} />}
-            label="Internship Post"
-            active={isInternshipPosts}
-            onClick={() => navigate('/admin/internship-posts')}
-          />
-          <SidebarItem
-            icon={<Building2 size={20} />}
-            label="Company"
-            active={isCompanies}
-            onClick={() => navigate('/admin/companies')}
-          />
-          <SidebarItem
-            icon={<Users size={20} />}
-            label="User Management"
-            active={isUsers}
-            onClick={() => navigate('/admin/users')}
-          />
-          <SidebarItem
-            icon={<Briefcase size={20} />}
-            label="Position Management"
-            active={isPositions}
-            onClick={() => navigate('/admin/positions')}
-          />
+          {canSeeDashboard && (
+            <SidebarItem
+              icon={<Home size={20} />}
+              label="Dashboard"
+              active={isDashboard}
+              onClick={() => navigate('/admin/dashboard')}
+            />
+          )}
+          {canSeePosts && (
+            <SidebarItem
+              icon={<FileText size={20} />}
+              label="Internship Post"
+              active={isInternshipPosts}
+              onClick={() => navigate('/admin/internship-posts')}
+            />
+          )}
+          {canSeeCompanies && (
+            <SidebarItem
+              icon={<Building2 size={20} />}
+              label="Company"
+              active={isCompanies}
+              onClick={() => navigate('/admin/companies')}
+            />
+          )}
+          {canSeeUsers && (
+            <SidebarItem
+              icon={<Users size={20} />}
+              label="User Management"
+              active={isUsers}
+              onClick={() => navigate('/admin/users')}
+            />
+          )}
+          {canSeePositions && (
+            <SidebarItem
+              icon={<Briefcase size={20} />}
+              label="Position Management"
+              active={isPositions}
+              onClick={() => navigate('/admin/positions')}
+            />
+          )}
         </div>
       </div>
     </div>

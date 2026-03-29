@@ -12,7 +12,7 @@
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/login",
+        "http://localhost:5002/api/login",
         {
           email: username,
           password: password,
@@ -21,9 +21,13 @@
 
         localStorage.setItem("user", JSON.stringify(response.data.user));
         navigate("/posts");
-      } catch (error: any) {
+      } catch (error: unknown) {
         alert("Username หรือ Password ไม่ถูกต้อง ❌");
-        console.error(error.response?.data || error.message);
+        if (axios.isAxiosError(error)) {
+          console.error(error.response?.data || error.message);
+        } else {
+          console.error(error);
+        }
       }
     };
 

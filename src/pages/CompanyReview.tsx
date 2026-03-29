@@ -1,7 +1,7 @@
 import { Link, useParams, useNavigate } from 'react-router-dom';
 
 import Navbar from '../components/Navbar';
-import { ArrowLeft, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
 export default function CompanyReview() {

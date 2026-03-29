@@ -7,6 +7,22 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isOnAdminSite = location.pathname.startsWith('/admin');
+  
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const userRole = user?.role || "";
+  const normalizedUserRole = String(userRole).trim().toLowerCase();
+
+  const isAdminRole = normalizedUserRole === "admin";
+
+  const getAdminDefaultRoute = () => {
+    return normalizedUserRole === "admin" ? "/admin/dashboard" : "/posts";
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    navigate("/");
+  };
 
   return (
     <nav className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-50">
@@ -46,21 +62,33 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
 
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
+                {isAdminRole && (
+                  <button 
+                    className="block w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100 font-bold"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      if (isOnAdminSite) {
+                        navigate('/posts');
+                      } else {
+                        navigate(getAdminDefaultRoute());
+                      }
+                    }}
+                  >
+                    {isOnAdminSite ? 'Back to User Site' : 'Admin Site'}
+                  </button>
+                )}
                 <button 
                   className="block w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100"
-                  onClick={() => isOnAdminSite ? navigate('/posts') : navigate('/admin/dashboard')}
-                >
-                  {isOnAdminSite ? 'Back to user site' : 'Admin Dashboard'}
-                </button>
-                <button 
-                  className="block w-full text-left px-4 py-3 text-base text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100"
-                  onClick={() => navigate('/setting')}
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    navigate('/setting');
+                  }}
                 >
                   Setting
                 </button>
                 <button 
                   className="block w-full text-left px-4 py-3 text-base text-red-600 hover:bg-red-50 transition-colors"
-                  onClick={() => navigate('/')}
+                  onClick={handleLogout}
                 >
                   ออกจากระบบ
                 </button>

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import InternshipPosts from './pages/InternshipPosts';
 import InternshipPostDetail from './pages/InternshipPostDetail';
@@ -28,6 +28,21 @@ function InternshipPostDetailWrapper() {
   return <InternshipPostDetail key={id} />;
 }
 
+// Protected Route Component for Admin Access
+const AdminRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const userRole = user?.role || "";
+
+  if (!user) return <Navigate to="/" replace />;
+  
+  if (!allowedRoles.includes(userRole)) {
+    return <Navigate to="/posts" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -53,22 +68,75 @@ function App() {
           <Route path="/setting" element={<Setting />} />
 
           {/* Admin */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/internship-posts" element={<AdminInternshipPostList />} />
-          <Route path="/admin/internship-posts/new" element={<AdminInternshipPostForm />} />
-          <Route path="/admin/internship-posts/:id" element={<AdminInternshipPostDetail />} />
+          <Route path="/admin/dashboard" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminDashboard />
+            </AdminRoute>
+          } />
+          
+          <Route path="/admin/internship-posts" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminInternshipPostList />
+            </AdminRoute>
+          } />
+          <Route path="/admin/internship-posts/new" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminInternshipPostForm />
+            </AdminRoute>
+          } />
+          <Route path="/admin/internship-posts/:id" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminInternshipPostDetail />
+            </AdminRoute>
+          } />
 
-          <Route path="/admin/companies" element={<AdminCompanyList />} />
-          <Route path="/admin/companies/new" element={<AdminCompanyForm />} />
-          <Route path="/admin/companies/:id" element={<AdminCompanyDetail />} />
+          <Route path="/admin/companies" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminCompanyList />
+            </AdminRoute>
+          } />
+          <Route path="/admin/companies/new" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminCompanyForm />
+            </AdminRoute>
+          } />
+          <Route path="/admin/companies/:id" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminCompanyDetail />
+            </AdminRoute>
+          } />
 
-          <Route path="/admin/users" element={<AdminUserList />} />
-          <Route path="/admin/users/new" element={<AdminUserForm />} />
-          <Route path="/admin/users/:id" element={<AdminUserDetail />} />
+          <Route path="/admin/users" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminUserList />
+            </AdminRoute>
+          } />
+          <Route path="/admin/users/new" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminUserForm />
+            </AdminRoute>
+          } />
+          <Route path="/admin/users/:id" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminUserDetail />
+            </AdminRoute>
+          } />
 
-          <Route path="/admin/positions" element={<AdminPositionList />} />
-          <Route path="/admin/positions/new" element={<AdminPositionForm />} />
-          <Route path="/admin/positions/:id" element={<AdminPositionDetail />} />
+          <Route path="/admin/positions" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminPositionList />
+            </AdminRoute>
+          } />
+          <Route path="/admin/positions/new" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminPositionForm />
+            </AdminRoute>
+          } />
+          <Route path="/admin/positions/:id" element={
+            <AdminRoute allowedRoles={["Admin"]}>
+              <AdminPositionDetail />
+            </AdminRoute>
+          } />
 
         </Routes>
 

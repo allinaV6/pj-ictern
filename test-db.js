@@ -19,8 +19,8 @@ async function testDB() {
 
     console.log('✅ connection created');
 
-    const [rows] = await conn.query('SELECT NOW() AS now');
-    console.log('✅ DB Connected at:', rows[0].now);
+    const [rows] = await conn.query('SHOW COLUMNS FROM internship_posts');
+    console.log('✅ internship_posts columns:', rows);
 
     await conn.end();
     console.log('🔚 connection closed');
