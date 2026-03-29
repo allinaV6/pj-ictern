@@ -484,11 +484,11 @@ app.get("/api/positions/by-ids", async (req, res) => {
 // ==================================================
 // ==================================================
 app.post('/api/favorites', async (req, res) => {
-  const { student_id, post_id } = req.body;
+  const { user_id, post_id } = req.body;
 
   await db.query(
-    'INSERT INTO favorites (student_id, post_id) VALUES (?, ?)',
-    [student_id, post_id]
+    'INSERT INTO favorites (user_id, post_id) VALUES (?, ?)',
+    [user_id, post_id]
   );
 
   res.json({ success: true });
@@ -498,11 +498,11 @@ app.post('/api/favorites', async (req, res) => {
 // ==================================================
 // ==================================================
 app.delete('/api/favorites', async (req, res) => {
-  const { student_id, post_id } = req.body;
+  const { user_id, post_id } = req.body;
 
   await db.query(
-    'DELETE FROM favorites WHERE student_id = ? AND post_id = ?',
-    [student_id, post_id]
+    'DELETE FROM favorites WHERE user_id = ? AND post_id = ?',
+    [user_id, post_id]
   );
 
   res.json({ success: true });
@@ -512,16 +512,7 @@ app.delete('/api/favorites', async (req, res) => {
 // GET FAVORITE FROM USER
 // ==================================================
 // ==================================================
-app.get('/api/favorites/:student_id', async (req, res) => {
-  const { student_id } = req.params;
 
-  const [rows] = await db.query(
-    'SELECT post_id FROM favorites WHERE student_id = ?',
-    [student_id]
-  );
-
-  res.json(rows);
-});
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
