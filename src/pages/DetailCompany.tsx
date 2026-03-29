@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Calendar, Clock } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Star, Calendar, Clock } from 'lucide-react';
 import axios from 'axios';
 
 interface CompanyData {
@@ -30,19 +30,18 @@ interface JobData {
   internship_status?: number;
 }
 
-type Review = {
-  id: number;
-};
-
 export default function DetailCompany() {
   const { id } = useParams();
   const [showDefinitions, setShowDefinitions] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [company, setCompany] = useState<CompanyData | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [activeJobs, setActiveJobs] = useState<JobData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [avgRating, setAvgRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,13 +55,28 @@ export default function DetailCompany() {
         setLoading(true);
         console.log(`Fetching data for company ID: ${id}`);
         
-        const [companyRes, postsRes] = await Promise.all([
-          axios.get(`http://localhost:5002/api/company/${id}`),
-          axios.get(`http://localhost:5002/api/posts/company/${id}`)
+        const [companyRes, postsRes, reviewRes] = await Promise.all([
+          axios.get(`http://localhost:5000/api/company/${id}`),
+          axios.get(`http://localhost:5000/api/posts/company/${id}`),
+          axios.get(`http://localhost:5000/api/reviews/company/${id}`) 
         ]);
-        
+
         setCompany(companyRes.data);
         setActiveJobs(postsRes.data);
+        setReviews(reviewRes.data);
+
+        if (reviewRes.data.length > 0) {
+          const total = reviewRes.data.reduce(
+            (sum: number, r: any) => sum + (r.rating || 0),
+            0
+          );
+          const avg = total / reviewRes.data.length;
+          setAvgRating(avg);
+          setTotalReviews(reviewRes.data.length);
+        } else {
+          setAvgRating(0);
+          setTotalReviews(0);
+        }
         setError("");
       } catch (err) {
         console.error("Error fetching company data:", err);
@@ -74,8 +88,6 @@ export default function DetailCompany() {
 
     fetchData();
   }, [id]);
-
-  const reviews: Review[] = [];
 
   if (loading) {
     return (
@@ -127,8 +139,12 @@ export default function DetailCompany() {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-blue-900">{company.company_name}</h2>
-                <div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
-                  ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
+                <div className="flex items-center gap-1 text-yellow-500 text-sm font-bold">
+                  <Star size={16} fill="currentColor" />
+                  {avgRating.toFixed(1)}
+                  <span className="text-gray-400 font-normal ml-1">
+                    ({totalReviews} Reviews)
+                  </span>
                 </div>
               </div>
             </div>
@@ -254,8 +270,39 @@ export default function DetailCompany() {
           <div className="space-y-4">
             {reviews.length > 0 ? (
               reviews.map(review => (
-                <div key={review.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative">
-                  {/* ... existing review content ... */}
+                <div
+                  key={review.review_id}
+                  className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative"
+                >
+
+                  {/* HEADER */}
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold text-blue-900">
+                      {review.reviewer_name || "Anonymous"}
+                    </h3>
+
+                    <div className="text-yellow-500 font-bold flex items-center gap-1">
+                      ⭐ {review.rating}
+                    </div>
+                  </div>
+
+                  {/* COMMENT */}
+                  <p className="text-gray-700 mb-3 leading-relaxed">
+                    {review.comment}
+                  </p>
+
+                  {/* DETAIL RATING (optional เท่ขึ้น) */}
+                  <div className="text-sm text-gray-500 flex gap-4 mb-2">
+                    <span>Work: {review.review_work_rating}</span>
+                    <span>Life: {review.review_life_rating}</span>
+                    <span>Social: {review.review_commu_rating}</span>
+                  </div>
+
+                  {/* DATE */}
+                  <p className="text-xs text-gray-400">
+                    {new Date(review.created_at).toLocaleDateString('th-TH')}
+                  </p>
+
                 </div>
               ))
             ) : (
@@ -292,8 +339,12 @@ export default function DetailCompany() {
                 <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedJob.internship_title}</h2>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-gray-600 font-medium">{company?.company_name}</span>
-                  <div className="flex items-center gap-1 text-gray-400 font-bold">
-                    ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
+                  <div className="flex items-center gap-1 text-yellow-500 font-bold">
+                    <Star size={16} fill="currentColor" />
+                    {avgRating.toFixed(1)}
+                    <span className="text-gray-400 font-normal ml-1">
+                      ({totalReviews} Reviews)
+                    </span>
                   </div>
                 </div>
               </div>

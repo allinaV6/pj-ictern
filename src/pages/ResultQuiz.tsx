@@ -1,161 +1,188 @@
-import { useEffect } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
-interface Position {
-  id: string;
-  title: string;
-  description: string;
-}
-
-// Mock recommendations data
-const RECOMMENDATIONS: Record<string, string[]> = {
-  'ai-ml': [
-    'ศึกษาคณิตศาสตร์และสถิติเบื้องต้น',
-    'เรียนรู้ Python และ Library เช่น TensorFlow, PyTorch',
-    'ทำโปรเจกต์วิเคราะห์ข้อมูลจริง'
-  ],
-  'backend': [
-    'เรียนรู้ภาษาเช่น Java, Go, Node.js',
-    'ฝึกออกแบบ Database และ API',
-    'ศึกษาเรื่อง Server และ Cloud Deployment'
-  ],
-  'devops': [
-    'ศึกษา Linux และ Command Line',
-    'เรียนรู้เครื่องมือ CI/CD เช่น Jenkins, GitLab CI',
-    'ฝึกใช้ Docker และ Kubernetes'
-  ],
-  'fullstack': [
-    'เรียนรู้ทั้ง Frontend และ Backend',
-    'ฝึกทำโปรเจกต์แบบ End-to-End',
-    'ศึกษาเรื่อง Deployment และ Architecture'
-  ],
-  'uxui': [
-    'เรียนรู้เครื่องมือ Figma ขั้นสูง',
-    'ทำ Case Study การออกแบบเชิงลึก',
-    'ฝึกฝนการทำ Usability Testing'
-  ],
-  'data-eng': [
-    'เรียนรู้ SQL และ NoSQL',
-    'ศึกษาเรื่อง ETL Pipeline',
-    'ฝึกใช้ Cloud Data Services'
-  ],
-  // Fallback for others
-  'default': [
-    'ศึกษาพื้นฐานที่เกี่ยวข้อง',
-    'หาคอร์สเรียนออนไลน์เพิ่มเติม',
-    'ฝึกทำโปรเจกต์จริง'
-  ]
-};
-
 export default function ResultQuiz() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { selectedPositions } = location.state as { selectedPositions: Position[] } || { selectedPositions: [] };
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [quizDate, setQuizDate] = useState<string>("");
 
   useEffect(() => {
-    if (!selectedPositions || selectedPositions.length === 0) {
-      navigate('/quiz');
+    if (!user?.student_id) {
+      navigate("/");
+      return;
     }
-  }, [selectedPositions, navigate]);
 
-  if (!selectedPositions || selectedPositions.length === 0) {
-    return null;
+    fetchResult();
+  }, []);
+
+  const fetchResult = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/quiz/result/${user.student_id}`);
+      const data = await res.json();
+
+      // ✅ คำนวณ % ต่อสายงาน
+      const MAX_SCORE = 25;
+
+      const percent = [
+        {
+          position_id: Number(data.position1),
+          score: data.score1,
+          percent: Math.round((data.score1 / MAX_SCORE) * 100)
+        },
+        {
+          position_id: Number(data.position2),
+          score: data.score2,
+          percent: Math.round((data.score2 / MAX_SCORE) * 100)
+        },
+        {
+          position_id: Number(data.position3),
+          score: data.score3,
+          percent: Math.round((data.score3 / MAX_SCORE) * 100)
+        }
+      ];
+
+      // sort ranking
+      percent.sort((a, b) => b.percent - a.percent);
+
+      // ดึงข้อมูล position
+      const ids = percent.map(p => p.position_id).join(',');
+
+      const res2 = await fetch(`http://localhost:5000/api/positions/by-ids?ids=${ids}`);
+      const posData = await res2.json();
+
+      const map: any = {};
+      posData.forEach((p: any) => {
+        map[p.position_id] = p;
+      });
+
+      const final = percent.map(p => ({
+        ...p,
+        name: map[p.position_id]?.position_name || "Unknown",
+        skill: map[p.position_id]?.position_skill || ""
+      }));
+
+      setResults(final);
+      setQuizDate(data.quiz_date);
+
+    } catch (err) {
+      console.error(err);
+      alert("โหลดผลลัพธ์ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-10 text-center">กำลังโหลดผลลัพธ์...</div>;
   }
 
-  // Mock scores for demo (ensure winner is clear)
-  const results = selectedPositions.map((pos, index) => {
-    let score;
-    if (index === 0) score = 95; // Winner
-    else if (index === 1) score = 60;
-    else score = 20;
-    
-    return { ...pos, score };
-  }).sort((a, b) => b.score - a.score); // Sort by score descending
+  if (results.length === 0) {
+    return <div className="p-10 text-center">ยังไม่มีผลลัพธ์</div>;
+  }
 
-  const winner = results[0];
-  const recommendations = RECOMMENDATIONS[winner.id] || RECOMMENDATIONS['default'];
+  // ซ้าย(3) กลาง(1) ขวา(2)
+  const display = [results[2], results[0], results[1]].filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24">
       <Navbar />
 
-      {/* Header Banner */}
-      <div className="bg-blue-900 text-white py-10 px-4">
-        <div className="max-w-6xl mx-auto text-center md:text-left">
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">ตำแหน่งฝึกงานที่แนะนำจากผลการประเมินความสนใจในสายอาชีพ</h1>
-          <p className="text-blue-200 text-lg">
-            เลือกตำแหน่งที่คุณสนใจได้ <span className="font-bold text-white">สูงสุด 3 ตำแหน่ง</span> เพื่อเริ่มทำแบบทดสอบที่เหมาะกับคุณ
-          </p>
-        </div>
-      </div>
+      <div className="max-w-4xl mx-auto mt-10 bg-white p-10 rounded-lg shadow">
 
-      <div className="max-w-6xl mx-auto px-4 mt-8">
-        <div className="bg-white rounded-lg shadow-sm border p-10">
-            
-            {/* Winner Section */}
-            <div className="text-center mb-12">
-                <h2 className="text-2xl text-blue-900 font-bold mb-8">
-                    ผลลัพธ์ตำแหน่งอันดับ 1 ของคุณคือ <span className="text-blue-600">{winner.title}</span>
-                </h2>
-                
-                <h3 className="text-xl font-bold text-blue-900 mb-6">ภาพรวมผลการประเมินทักษะทั้ง 3 ตำแหน่ง</h3>
-                
-                {/* Bar Chart */}
-                <div className="flex justify-center items-end gap-8 h-64 max-w-lg mx-auto mb-4">
-                    {/* Render bars sorted by original selection order or score? 
-                        Screenshot shows: Yellow (60%), Green (95%), Blue (20%). 
-                        So it seems to be in specific order, with the winner in the middle/highlighted.
-                        Let's try to match the screenshot layout: Bar 2 is winner.
-                    */}
-                    
-                    {/* Re-ordering for display: [Runner-up, Winner, Last] */}
-                    {[results[1], results[0], results[2]].filter(Boolean).map((item) => {
-                        // Colors based on score/position in display
-                        const isWinner = item.id === winner.id;
-                        let barColor = 'bg-blue-400'; // Default low
-                        if (isWinner) barColor = 'bg-green-600';
-                        else if (item.score > 40) barColor = 'bg-yellow-400';
-                        
-                        return (
-                            <div key={item.id} className="flex flex-col items-center gap-2 w-24">
-                                <span className="font-bold text-gray-700 text-lg">{item.score}%</span>
-                                <div 
-                                    className={`w-full rounded-t-lg transition-all duration-1000 ${barColor}`} 
-                                    style={{ height: `${item.score * 2}px` }}
-                                ></div>
-                                <span className="text-base font-bold text-blue-900 text-center leading-tight">{item.title}</span>
-                            </div>
-                        );
-                    })}
+        {/* 🔥 อันดับ 1 */}
+        <p className="text-blue-900 font-bold text-lg mb-4 border-b pb-2">
+          ผลลัพธ์ตำแหน่งอันดับ 1 ของคุณคือ {results[0].name}
+        </p>
+
+        {/* 🔥 TITLE */}
+        <h2 className="text-2xl font-bold text-center mb-10 text-blue-900">
+          ภาพรวมผลการประเมินทักษะทั้ง 3 ตำแหน่ง
+        </h2>
+
+        {/* 🔥 GRAPH */}
+        <div className="flex justify-center items-end gap-10 h-64 mb-10">
+
+          {display.map((item, index) => {
+            const isWinner = index === 1;
+
+            return (
+              <div key={index} className="flex flex-col items-center">
+
+                <div className="mb-2 font-bold text-lg text-blue-900">
+                  {item.percent}%
                 </div>
-                <div className="text-center text-gray-400 text-base">ทำแบบทดสอบครั้งล่าสุดวันที่ 31/10/2568</div>
-            </div>
 
-            <hr className="border-gray-200 mb-8" />
+                <div
+                  className={`w-20 rounded-t transition-all duration-500 ${
+                    isWinner
+                      ? "bg-green-600"
+                      : index === 0
+                      ? "bg-yellow-400"
+                      : "bg-blue-500"
+                  }`}
+                  style={{ height: `${item.percent * 2}px` }}
+                />
 
-            {/* Recommendations */}
-            <div className="mb-8">
-                <h3 className="text-2xl font-bold text-blue-900 mb-4">แนวทางการพัฒนาทักษะ {winner.title}</h3>
-                <ul className="list-disc pl-5 space-y-2 text-gray-700 text-base">
-                    {recommendations.map((rec, idx) => (
-                        <li key={idx}>{rec}</li>
-                    ))}
-                </ul>
-            </div>
-            
-            <hr className="border-gray-200 mb-8" />
+                <div className="mt-3 text-center font-bold text-blue-900">
+                  {item.name}
+                </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-4">
-                <Link to="/quiz" className="flex items-center gap-2 px-6 py-2.5 border rounded-lg hover:bg-gray-50 text-gray-600 font-bold text-base">
-                    ทำแบบทดสอบใหม่อีกครั้ง
-                </Link>
-                <Link to="/posts" className="flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white rounded-lg font-bold text-base hover:bg-blue-800">
-                    ค้นหาสถานที่ฝึกงาน
-                </Link>
-            </div>
+              </div>
+            );
+          })}
+
         </div>
+
+        {/* 🔥 DATE */}
+        <p className="text-center text-gray-500 mb-6">
+          ทำแบบทดสอบครั้งล่าสุดวันที่{" "}
+          {quizDate
+            ? new Date(quizDate).toLocaleDateString('th-TH')
+            : "-"}
+        </p>
+
+        <hr className="my-6" />
+
+        {/* 🔥 SKILL */}
+        <div className="mt-6">
+          <h3 className="text-xl font-bold text-blue-900 mb-3">
+            แนวทางการพัฒนาทักษะ {results[0].name}
+          </h3>
+
+          <ul className="list-disc pl-6 text-gray-700 space-y-1">
+            {results[0].skill
+              ? results[0].skill.split('\n').map((line: string, i: number) => (
+                  <li key={i}>{line}</li>
+                ))
+              : <li>ยังไม่มีข้อมูล</li>}
+          </ul>
+        </div>
+
+        <hr className="my-6" />
+
+        {/* 🔥 BUTTONS */}
+        <div className="flex justify-end gap-4 mt-6">
+
+          <button
+            onClick={() => navigate('/quiz')}
+            className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+          >
+            ทำแบบทดสอบใหม่อีกครั้ง
+          </button>
+
+          <button
+            onClick={() => navigate('/posts')}
+            className="px-6 py-3 bg-blue-900 text-white rounded-lg font-semibold hover:bg-blue-800 transition-colors"
+          >
+            ค้นหาสถานที่ฝึกงาน
+          </button>
+
+        </div>
+
       </div>
     </div>
   );

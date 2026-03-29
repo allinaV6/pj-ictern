@@ -1,12 +1,12 @@
 require("dotenv").config();
 const express = require("express");
-const mysql = require("mysql2");
+const mysql = require("mysql2/promise");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json({ limit: "15mb" }));
@@ -26,68 +26,50 @@ const db = mysql.createPool({
 
 const DEFAULT_IMPORTED_USER_PASSWORD = "123456";
 
-db.getConnection((err, connection) => {
-  if (err) {
-    console.error("❌ MySQL connection failed:", err);
-  } else {
+// test connection
+(async () => {
+  try {
+    const conn = await db.getConnection();
     console.log("✅ Connected to MySQL");
-    connection.release();
+    conn.release();
+  } catch (err) {
+    console.error("❌ MySQL connection failed:", err);
   }
-});
-
-const query = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.query(sql, params, (err, results) => {
-      if (err) return reject(err);
-      resolve(results);
-    });
-  });
-
+})();
 
 // ==================================================
 // LOGIN
 // ==================================================
-app.post("/api/login", (req, res) => {
+app.post("/api/auth/firebase-login", async (req, res) => {
+  try {
+    const { email } = req.body;
 
-  const { email, password } = req.body;
-  console.log("📨 Login request received:", { email, password });
+    console.log("📩 login request:", email);
 
-  const sql = "SELECT * FROM account WHERE username = ?";
+    const [rows] = await db.query(
+      "SELECT * FROM student WHERE email = ?",
+      [email]
+    );
 
-  db.query(sql, [email], (err, results) => {
-
-    if (err) {
-      return res.status(500).json(err);
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: "User not found"
+      });
     }
 
-    if (results.length === 0) {
-      console.log("🔍 User not found for username:", email);
-      return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
-    }
-
-    const user = results[0];
-    console.log("🔍 User found:", { username: user.username, role: user.role });
-
-    if (password !== user.password) {
-      console.log("❌ Password mismatch for user:", email);
-      return res.status(401).json({ message: "Username หรือ Password ไม่ถูกต้อง" });
-    }
-
-    console.log("✅ Login success for user:", email);
     res.json({
-      message: "Login success",
-      user: {
-        id: user.account_id,
-        username: user.username,
-        role: user.role,
-        status: user.account_status,
-      },
+      user: rows[0]
     });
 
-  });
-
+  } catch (err) {
+    console.error("❌ ERROR:", err);
+    res.status(500).json({ error: "server error" });
+  }
 });
 
+// ==================================================
+// USERS (ADMIN)
+// ==================================================
 app.get("/api/users", async (req, res) => {
   try {
     const roleParam = typeof req.query.role === 'string' ? req.query.role.toLowerCase() : 'students';
@@ -97,7 +79,7 @@ app.get("/api/users", async (req, res) => {
       ? "WHERE a.role <> 'Student'"
       : "WHERE a.role = 'Student'";
 
-    const rows = await query(
+    const [rows] = await db.query(
       `
       SELECT
         a.account_id,
@@ -137,7 +119,7 @@ app.get("/api/users", async (req, res) => {
 app.get("/api/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const rows = await query(
+    const [rows] = await db.query(
       `
       SELECT
         a.account_id,
@@ -188,38 +170,38 @@ app.put("/api/users/:id", async (req, res) => {
       internship_company_id
     } = req.body;
 
-    const current = await query(
+    const [current] = await db.query(
       "SELECT account_id, role FROM account WHERE account_id = ? LIMIT 1",
       [id]
     );
     if (!current || current.length === 0) return res.status(404).json({ message: "User not found" });
 
-    await query(
+    await db.query(
       "UPDATE account SET username = ?, account_status = ? WHERE account_id = ?",
       [username, typeof account_status === "number" ? account_status : 1, id]
     );
 
     if (current[0].role === 'Student') {
-      const studentRows = await query("SELECT student_id FROM student WHERE account_id = ? LIMIT 1", [id]);
+      const [studentRows] = await db.query("SELECT student_id FROM student WHERE account_id = ? LIMIT 1", [id]);
       if (studentRows.length > 0) {
         const studentId = studentRows[0].student_id;
-        await query(
+        await db.query(
           "UPDATE student SET student_name = ?, student_faculty = ?, student_major = ? WHERE account_id = ?",
           [student_name || null, student_faculty || null, student_major || null, id]
         );
 
         if (typeof internship_company_id === "number") {
-          const activeRows = await query(
+          const [activeRows] = await db.query(
             "SELECT student_internship_id FROM internship_of_student WHERE student_id = ? AND (end_date IS NULL) ORDER BY student_internship_id DESC LIMIT 1",
             [studentId]
           );
           if (activeRows.length > 0) {
-            await query(
+            await db.query(
               "UPDATE internship_of_student SET company_id = ? WHERE student_internship_id = ?",
               [internship_company_id, activeRows[0].student_internship_id]
             );
           } else {
-            await query(
+            await db.query(
               "INSERT INTO internship_of_student (student_id, company_id, start_date, student_internship_status) VALUES (?, ?, NOW(), 1)",
               [studentId, internship_company_id]
             );
@@ -318,7 +300,7 @@ app.post("/api/users/import", async (req, res) => {
       return res.status(400).json({ message: 'No valid rows to import' });
     }
 
-    const existingAccounts = await query('SELECT account_id, role, username FROM account');
+    const [existingAccounts] = await db.query('SELECT account_id, role, username FROM account');
     const existingIdsByRole = {
       Admin: new Set(),
       Student: new Set(),
@@ -327,7 +309,7 @@ app.post("/api/users/import", async (req, res) => {
 
     const findAccountIdByStudentId = async (studentId) => {
       if (!studentId || typeof studentId !== 'number' || studentId <= 0) return null;
-      const studentRows = await query('SELECT account_id FROM student WHERE student_id = ? LIMIT 1', [studentId]);
+      const [studentRows] = await db.query('SELECT account_id FROM student WHERE student_id = ? LIMIT 1', [studentId]);
       return studentRows.length > 0 ? studentRows[0].account_id : null;
     };
     existingAccounts.forEach((row) => {
@@ -362,18 +344,18 @@ app.post("/api/users/import", async (req, res) => {
       const existingRow = accountId ? existingAccounts.find((item) => item.account_id === accountId) : null;
 
       if (existingRow) {
-        await query(
+        await db.query(
           'UPDATE account SET username = ?, role = ?, account_status = ? WHERE account_id = ?',
           [row.username, row.role, row.account_status, accountId]
         );
       } else {
         if (accountId) {
-          await query(
+          await db.query(
             'INSERT INTO account (account_id, username, role, account_status, password) VALUES (?, ?, ?, ?, ?)',
             [accountId, row.username, row.role, row.account_status, DEFAULT_IMPORTED_USER_PASSWORD]
           );
         } else {
-            const result = await query(
+            const [result] = await db.query(
             'INSERT INTO account (username, role, account_status, password) VALUES (?, ?, ?, ?)',
             [row.username, row.role, row.account_status, DEFAULT_IMPORTED_USER_PASSWORD]
           );
@@ -382,27 +364,27 @@ app.post("/api/users/import", async (req, res) => {
       }
 
       if (row.role === 'Student' && accountId) {
-        const studentRows = await query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
+        const [studentRows] = await db.query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
         if (studentRows.length > 0) {
           if (row.student_id > 0) {
-            await query(
+            await db.query(
               'UPDATE student SET student_id = ?, student_name = ?, student_faculty = ?, student_major = ? WHERE account_id = ?',
               [row.student_id, row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
             );
           } else {
-            await query(
+            await db.query(
               'UPDATE student SET student_name = ?, student_faculty = ?, student_major = ? WHERE account_id = ?',
               [row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
             );
           }
         } else {
           if (row.student_id > 0) {
-            await query(
+            await db.query(
               'INSERT INTO student (student_id, student_name, student_faculty, student_major, account_id) VALUES (?, ?, ?, ?, ?)',
               [row.student_id, row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
             );
           } else {
-            await query(
+            await db.query(
               'INSERT INTO student (student_name, student_faculty, student_major, account_id) VALUES (?, ?, ?, ?)',
               [row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
             );
@@ -410,20 +392,20 @@ app.post("/api/users/import", async (req, res) => {
         }
 
         if (typeof row.internship_company_id === 'number' && row.internship_company_id > 0) {
-          const studentInfo = await query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
+          const [studentInfo] = await db.query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
           const studentId = studentInfo.length > 0 ? studentInfo[0].student_id : null;
           if (studentId) {
-            const activeRows = await query(
+            const [activeRows] = await db.query(
               'SELECT student_internship_id FROM internship_of_student WHERE student_id = ? AND (end_date IS NULL) ORDER BY student_internship_id DESC LIMIT 1',
               [studentId]
             );
             if (activeRows.length > 0) {
-              await query(
+              await db.query(
                 'UPDATE internship_of_student SET company_id = ? WHERE student_internship_id = ?',
                 [row.internship_company_id, activeRows[0].student_internship_id]
               );
             } else {
-              await query(
+              await db.query(
                 'INSERT INTO internship_of_student (student_id, company_id, start_date, student_internship_status) VALUES (?, ?, NOW(), 1)',
                 [studentId, row.internship_company_id]
               );
@@ -433,27 +415,27 @@ app.post("/api/users/import", async (req, res) => {
       }
 
       if (row.role !== 'Student' && accountId) {
-        await query('UPDATE student SET student_name = ? WHERE account_id = ?', [row.username || null, accountId]);
+        await db.query('UPDATE student SET student_name = ? WHERE account_id = ?', [row.username || null, accountId]);
       }
 
       return accountId;
     };
 
     const deleteAccount = async (accountId) => {
-      const studentRows = await query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
+      const [studentRows] = await db.query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
       const studentId = studentRows.length > 0 ? studentRows[0].student_id : null;
       if (studentId) {
-        await query('DELETE FROM quiz_result WHERE student_id = ?', [studentId]);
-        await query('DELETE FROM career_fit_quiz WHERE student_id = ?', [studentId]);
-        await query('DELETE FROM favorite WHERE student_id = ?', [studentId]);
-        await query(
+        await db.query('DELETE FROM quiz_result WHERE student_id = ?', [studentId]);
+        await db.query('DELETE FROM career_fit_quiz WHERE student_id = ?', [studentId]);
+        await db.query('DELETE FROM favorite WHERE student_id = ?', [studentId]);
+        await db.query(
           'DELETE FROM review WHERE student_internship_id IN (SELECT student_internship_id FROM internship_of_student WHERE student_id = ?)',
           [studentId]
         );
-        await query('DELETE FROM internship_of_student WHERE student_id = ?', [studentId]);
-        await query('DELETE FROM student WHERE student_id = ?', [studentId]);
+        await db.query('DELETE FROM internship_of_student WHERE student_id = ?', [studentId]);
+        await db.query('DELETE FROM student WHERE student_id = ?', [studentId]);
       }
-      await query('DELETE FROM account WHERE account_id = ?', [accountId]);
+      await db.query('DELETE FROM account WHERE account_id = ?', [accountId]);
     };
 
     for (const row of importedRows) {
@@ -486,22 +468,22 @@ app.delete("/api/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const studentRows = await query("SELECT student_id FROM student WHERE account_id = ? LIMIT 1", [id]);
+    const [studentRows] = await db.query("SELECT student_id FROM student WHERE account_id = ? LIMIT 1", [id]);
     const studentId = studentRows.length > 0 ? studentRows[0].student_id : null;
 
     if (studentId) {
-      await query("DELETE FROM quiz_result WHERE student_id = ?", [studentId]);
-      await query("DELETE FROM career_fit_quiz WHERE student_id = ?", [studentId]);
-      await query("DELETE FROM favorite WHERE student_id = ?", [studentId]);
-      await query(
+      await db.query("DELETE FROM quiz_result WHERE student_id = ?", [studentId]);
+      await db.query("DELETE FROM career_fit_quiz WHERE student_id = ?", [studentId]);
+      await db.query("DELETE FROM favorite WHERE student_id = ?", [studentId]);
+      await db.query(
         "DELETE FROM review WHERE student_internship_id IN (SELECT student_internship_id FROM internship_of_student WHERE student_id = ?)",
         [studentId]
       );
-      await query("DELETE FROM internship_of_student WHERE student_id = ?", [studentId]);
-      await query("DELETE FROM student WHERE student_id = ?", [studentId]);
+      await db.query("DELETE FROM internship_of_student WHERE student_id = ?", [studentId]);
+      await db.query("DELETE FROM student WHERE student_id = ?", [studentId]);
     }
 
-    await query("DELETE FROM account WHERE account_id = ?", [id]);
+    await db.query("DELETE FROM account WHERE account_id = ?", [id]);
 
     res.json({ message: "User deleted" });
   } catch (err) {
@@ -510,84 +492,72 @@ app.delete("/api/users/:id", async (req, res) => {
   }
 });
 
-
 // ==================================================
 // GET ALL POSTS
 // ==================================================
-app.get("/api/posts", (req, res) => {
+app.get("/api/posts", async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        i.internship_posts_id AS post_id,
+        i.internship_title,
+        i.internship_location,
+        i.internship_duration,
+        i.internship_description,
+        i.internship_responsibilities,
+        i.internship_requirements,
+        i.internship_compensation,
+        i.internship_working_method,
+        i.internship_link,
+        i.internship_create_date,
+        i.internship_expired_date,
+        i.internship_status,
+        i.mou,
+        c.company_id,
+        c.company_name
+      FROM internship_posts i
+      JOIN company c ON i.company_id = c.company_id
+    `;
 
-  const sql = `
-    SELECT 
-      i.internship_posts_id AS post_id,
-      i.internship_title,
-      i.internship_location,
-      i.internship_duration,
-      i.internship_description,
-      i.internship_responsibilities,
-      i.internship_requirements,
-      i.internship_compensation,
-      i.internship_working_method,
-      i.internship_link,
-      i.internship_create_date,
-      i.internship_expired_date,
-      i.internship_status,
-      i.mou,
-      c.company_id,
-      c.company_name
-    FROM internship_posts i
-    JOIN company c
-      ON i.company_id = c.company_id
-  `;
-
-  db.query(sql, (err, results) => {
-
-    if (err) {
-      console.error(err);
-      return res.status(500).json(err);
-    }
-
+    const [results] = await db.query(sql);
     res.json(results);
 
-  });
-
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(err);
+  }
 });
-
 
 // ==================================================
 // GET POST BY ID
 // ==================================================
-app.get("/api/posts/:id", (req, res) => {
+app.get("/api/posts/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
 
-  const id = req.params.id;
+    const sql = `
+      SELECT 
+        i.internship_posts_id AS post_id,
+        i.company_id,
+        i.internship_title,
+        i.internship_location,
+        i.internship_duration,
+        i.internship_description,
+        i.internship_responsibilities,
+        i.internship_requirements,
+        i.internship_compensation,
+        i.internship_working_method,
+        i.internship_link,
+        i.internship_status,
+        i.mou,
+        i.internship_expired_date,
+        c.company_name
+      FROM internship_posts i
+      JOIN company c ON i.company_id = c.company_id
+      WHERE i.internship_posts_id = ?
+    `;
 
-  const sql = `
-  SELECT 
-    i.internship_posts_id AS post_id,
-    i.company_id,
-    i.internship_title,
-    i.internship_location,
-    i.internship_duration,
-    i.internship_description,
-    i.internship_responsibilities,
-    i.internship_requirements,
-    i.internship_compensation,
-    i.internship_working_method,
-    i.internship_link,
-    i.internship_status,
-    i.mou,
-    i.internship_expired_date,
-    c.company_name
-  FROM internship_posts i
-  JOIN company c
-  ON i.company_id = c.company_id
-  WHERE i.internship_posts_id = ?
-  `;
-
-  db.query(sql, [id], (err, results) => {
-
-    if (err) {
-      return res.status(500).json(err);
-    }
+    const [results] = await db.query(sql, [id]);
 
     if (results.length === 0) {
       return res.status(404).json({ message: "Post not found" });
@@ -595,530 +565,384 @@ app.get("/api/posts/:id", (req, res) => {
 
     res.json(results[0]);
 
-  });
-
-});
-
-
-// ==================================================
-// ✅ GET COMPANY BY ID
-// ==================================================
-app.get("/api/company/:id", (req, res) => {
-  const { id } = req.params;
-  console.log(`📨 Request for company ID: ${id}`);
-  const sql = "SELECT * FROM company WHERE company_id = ?";
-
-  db.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error("❌ Database error:", err);
-      return res.status(500).json({ message: "Database error" });
-    }
-
-    if (results.length === 0) {
-      console.log(`🔍 Company not found for ID: ${id}`);
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    console.log(`✅ Company found: ${results[0].company_name}`);
-    res.json(results[0]);
-  });
-});
-
-// ==================================================
-// ✅ GET POSTS BY COMPANY ID
-// ==================================================
-app.get("/api/posts/company/:id", (req, res) => {
-  const { id } = req.params;
-  const sql = `
-    SELECT 
-      internship_posts_id AS post_id,
-      internship_title,
-      internship_location,
-      internship_duration,
-      internship_compensation,
-      internship_description,
-      internship_responsibilities,
-      internship_requirements,
-      internship_working_method,
-      internship_expired_date,
-      internship_status
-    FROM internship_posts 
-    WHERE company_id = ?
-  `;
-
-  db.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error("❌ Query error:", err);
-      return res.status(500).json(err);
-    }
-    res.json(results);
-  });
-});
-
-// ==================================================
-// ✅ GET ALL COMPANIES (For selection)
-// ==================================================
-app.get("/api/companies", (req, res) => {
-  const sql = `
-    SELECT 
-      c.company_id,
-      c.company_name,
-      c.company_address,
-      c.company_type,
-      c.company_email,
-      c.company_phone_num,
-      c.company_link,
-      c.company_description,
-      c.company_logo,
-      c.company_status,
-      c.company_create_date,
-      c.admin_id,
-      COALESCE(COUNT(ip.internship_posts_id), 0) as total_posts
-    FROM company c
-    LEFT JOIN internship_posts ip ON ip.company_id = c.company_id
-    GROUP BY 
-      c.company_id,
-      c.company_name,
-      c.company_address,
-      c.company_type,
-      c.company_email,
-      c.company_phone_num,
-      c.company_link,
-      c.company_description,
-      c.company_logo,
-      c.company_status,
-      c.company_create_date,
-      c.admin_id
-    ORDER BY c.company_name
-  `;
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-});
-
-// ==================================================
-// ✅ CREATE COMPANY
-// ==================================================
-app.post("/api/companies", (req, res) => {
-  const {
-    company_name,
-    company_address,
-    company_type,
-    company_email,
-    company_phone_num,
-    company_link,
-    company_description,
-    company_logo,
-    company_status,
-    admin_id,
-    account_id
-  } = req.body;
-
-  const resolveAdminId = (cb) => {
-    const candidateAccountId = account_id ?? null;
-    const candidateAdminId = admin_id ?? null;
-    if (candidateAccountId) {
-      db.query(
-        "SELECT admin_id FROM admin WHERE account_id = ? LIMIT 1",
-        [candidateAccountId],
-        (err, rows) => {
-          if (err) return cb(err);
-          if (rows.length > 0) return cb(null, rows[0].admin_id);
-          return cb(null, 1);
-        }
-      );
-      return;
-    }
-    if (candidateAdminId) {
-      db.query(
-        "SELECT admin_id FROM admin WHERE admin_id = ? LIMIT 1",
-        [candidateAdminId],
-        (err, rows) => {
-          if (err) return cb(err);
-          if (rows.length > 0) return cb(null, rows[0].admin_id);
-          return cb(null, 1);
-        }
-      );
-      return;
-    }
-    cb(null, 1);
-  };
-
-  resolveAdminId((err, resolvedAdminId) => {
-    if (err) return res.status(500).json({ message: "Failed to resolve admin_id" });
-    const sql = `
-      INSERT INTO company (
-        admin_id, company_name, company_address, company_type, company_email,
-        company_phone_num, company_link, company_description, company_logo, company_status, company_create_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `;
-    db.query(
-      sql,
-      [
-        resolvedAdminId,
-        company_name,
-        company_address || null,
-        company_type || null,
-        company_email || null,
-        company_phone_num || null,
-        company_link || null,
-        company_description || null,
-        company_logo || null,
-        typeof company_status === "number" ? company_status : 1
-      ],
-      (e, result) => {
-        if (e) return res.status(500).json(e);
-        res.status(201).json({ message: "Company created", id: result.insertId });
-      }
-    );
-  });
-});
-
-// ==================================================
-// ✅ UPDATE COMPANY
-// ==================================================
-app.put("/api/companies/:id", (req, res) => {
-  const { id } = req.params;
-  const {
-    company_name,
-    company_address,
-    company_type,
-    company_email,
-    company_phone_num,
-    company_link,
-    company_description,
-    company_logo,
-    company_status
-  } = req.body;
-  const sql = `
-    UPDATE company SET
-      company_name = ?, company_address = ?, company_type = ?, company_email = ?,
-      company_phone_num = ?, company_link = ?, company_description = ?, company_logo = ?, company_status = ?
-    WHERE company_id = ?
-  `;
-  db.query(
-    sql,
-    [
-      company_name,
-      company_address || null,
-      company_type || null,
-      company_email || null,
-      company_phone_num || null,
-      company_link || null,
-      company_description || null,
-      company_logo || null,
-      typeof company_status === "number" ? company_status : 1,
-      id
-    ],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      res.json({ message: "Company updated" });
-    }
-  );
-});
-
-// ==================================================
-// ✅ DELETE COMPANY
-// ==================================================
-app.delete("/api/companies/:id", (req, res) => {
-  const { id } = req.params;
-  // Consider foreign key constraints; if posts exist, you may want to reject
-  db.query("DELETE FROM company WHERE company_id = ?", [id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Company deleted" });
-  });
-});
-
-// ==================================================
-// ✅ SIMPLE LOGO UPLOAD (base64 JSON)
-// Body: { filename: string, data: "data:image/png;base64,..." }
-// Returns: { url: "/uploads/<file>" }
-// ==================================================
-app.post("/api/uploads/logo", (req, res) => {
-  try {
-    const { filename, data } = req.body || {};
-    if (!filename || !data) {
-      return res.status(400).json({ message: "filename and data are required" });
-    }
-    const match = data.match(/^data:(.+);base64,(.*)$/);
-    if (!match) {
-      return res.status(400).json({ message: "Invalid base64 data" });
-    }
-    const ext = path.extname(filename) || ".png";
-    if (!fs.existsSync(path.join(__dirname, "uploads"))) {
-      fs.mkdirSync(path.join(__dirname, "uploads"), { recursive: true });
-    }
-    const safeName = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, "")}`;
-    const buffer = Buffer.from(match[2], "base64");
-    const outPath = path.join(__dirname, "uploads", safeName);
-    fs.writeFileSync(outPath, buffer);
-    const url = `/uploads/${safeName}`;
-    res.status(201).json({ url });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Upload failed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(err);
   }
 });
 
 // ==================================================
-// ✅ CREATE INTERNSHIP POST
+// GET COMPANY BY ID
 // ==================================================
-app.post("/api/posts", (req, res) => {
-  const { 
-    internship_title, company_id, internship_location, 
-    internship_duration, internship_description, 
-    internship_responsibilities, internship_requirements, 
-    internship_compensation, internship_working_method,
-    internship_expired_date, internship_status, internship_link,
-    mou,
-    admin_id,
-    account_id
-  } = req.body;
+app.get("/api/company/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  const sql = `
-    INSERT INTO internship_posts (
-      internship_title, company_id, internship_location, 
-      internship_duration, internship_description, 
-      internship_responsibilities, internship_requirements, 
-      internship_compensation, internship_working_method,
-      internship_expired_date, internship_status, internship_link, mou,
-      admin_id, internship_create_date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-  `;
+    const sql = "SELECT * FROM company WHERE company_id = ?";
+    const [results] = await db.query(sql, [id]);
 
-  const resolveAdminId = (cb) => {
-    const candidateAccountId = account_id ?? null;
-    const candidateAdminId = admin_id ?? null;
-
-    if (candidateAccountId) {
-      db.query(
-        "SELECT admin_id FROM admin WHERE account_id = ? LIMIT 1",
-        [candidateAccountId],
-        (err, results) => {
-          if (err) return cb(err);
-          if (results.length > 0) return cb(null, results[0].admin_id);
-          return cb(null, 1);
-        }
-      );
-      return;
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Company not found" });
     }
 
-    if (candidateAdminId) {
-      db.query(
-        "SELECT admin_id FROM admin WHERE admin_id = ? LIMIT 1",
-        [candidateAdminId],
-        (err, results) => {
-          if (err) return cb(err);
-          if (results.length > 0) return cb(null, results[0].admin_id);
-          return cb(null, 1);
-        }
-      );
-      return;
-    }
+    res.json(results[0]);
 
-    return cb(null, 1);
-  };
-
-  resolveAdminId((resolveErr, resolvedAdminId) => {
-    if (resolveErr) {
-      console.error(resolveErr);
-      return res.status(500).json({ message: "Failed to resolve admin_id" });
-    }
-
-    db.query(
-      sql,
-      [
-        internship_title, company_id, internship_location,
-        internship_duration, internship_description,
-        internship_responsibilities, internship_requirements,
-        internship_compensation, internship_working_method,
-        internship_expired_date, internship_status || 1, internship_link || null, mou ? 1 : 0,
-        resolvedAdminId
-      ],
-      (err, result) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json(err);
-        }
-        res.status(201).json({ message: "Post created", id: result.insertId });
-      }
-    );
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  }
 });
 
 // ==================================================
-// ✅ UPDATE INTERNSHIP POST
+// GET POSTS BY COMPANY
 // ==================================================
-app.put("/api/posts/:id", (req, res) => {
-  const id = req.params.id;
-  const { 
-    internship_title, company_id, internship_location, 
-    internship_duration, internship_description, 
-    internship_responsibilities, internship_requirements, 
-    internship_compensation, internship_working_method,
-    internship_expired_date, internship_status, internship_link, mou
-  } = req.body;
+app.get("/api/posts/company/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  const sql = `
-    UPDATE internship_posts SET 
-      internship_title = ?, company_id = ?, internship_location = ?, 
-      internship_duration = ?, internship_description = ?, 
-      internship_responsibilities = ?, internship_requirements = ?, 
-      internship_compensation = ?, internship_working_method = ?,
-      internship_expired_date = ?, internship_status = ?, internship_link = ?, mou = ?
-    WHERE internship_posts_id = ?
-  `;
-
-  db.query(sql, [
-    internship_title, company_id, internship_location, 
-    internship_duration, internship_description, 
-    internship_responsibilities, internship_requirements, 
-    internship_compensation, internship_working_method,
-    internship_expired_date, internship_status, internship_link || null, mou ? 1 : 0, id
-  ], (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json(err);
-    }
-    res.json({ message: "Post updated" });
-  });
-});
-
-// ==================================================
-// ✅ DELETE INTERNSHIP POST
-// ==================================================
-app.delete("/api/posts/:id", (req, res) => {
-  const id = req.params.id;
-  const sql = "DELETE FROM internship_posts WHERE internship_posts_id = ?";
-  db.query(sql, [id], (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Post deleted" });
-  });
-});
-
-// ==================================================
-// ✅ GET DASHBOARD SUMMARY
-// ==================================================
-app.get("/api/dashboard/summary", (req, res) => {
-  const { startDate, endDate, position, company, category, location, status } = req.query;
-
-  const dateCondition = startDate && endDate ? " AND ip.internship_create_date BETWEEN ? AND ?" : "";
-  const positionCondition = position && position !== 'all' ? " AND ip.internship_title = ?" : "";
-  const companyCondition = company && company !== 'all' ? " AND c.company_name = ?" : "";
-  const categoryCondition = category && category !== 'all' ? " AND c.company_type = ?" : "";
-  const locationCondition = location && location !== 'all' ? " AND ip.internship_location = ?" : "";
-  const statusCondition = status && status !== 'all'
-    ? status === 'open'
-      ? " AND (ip.internship_status = 1 OR ip.internship_status IS NULL)"
-      : " AND ip.internship_status = 0"
-    : "";
-
-  const dateParams = startDate && endDate ? [startDate + " 00:00:00", endDate + " 23:59:59"] : [];
-  const positionParams = position && position !== 'all' ? [position] : [];
-  const companyParams = company && company !== 'all' ? [company] : [];
-  const categoryParams = category && category !== 'all' ? [category] : [];
-  const locationParams = location && location !== 'all' ? [location] : [];
-
-  const postFilters = dateCondition + positionCondition + locationCondition + statusCondition;
-  const companyFilters = dateCondition + positionCondition + companyCondition + categoryCondition + locationCondition + statusCondition;
-
-  const postParams = [...dateParams, ...positionParams, ...locationParams];
-  const companyParamsWithFilters = [...dateParams, ...positionParams, ...companyParams, ...categoryParams, ...locationParams];
-
-
-
-  const queries = {
-    openPosts: `SELECT COUNT(*) as count FROM internship_posts ip JOIN company c ON ip.company_id = c.company_id WHERE (ip.internship_status = 1 OR ip.internship_status IS NULL) ${postFilters}`,
-    closedPosts: `SELECT COUNT(*) as count FROM internship_posts ip JOIN company c ON ip.company_id = c.company_id WHERE ip.internship_status = 0 ${postFilters}`,
-    totalCompanies: `
-      SELECT COUNT(DISTINCT c.company_id) as count
-      FROM company c
-      JOIN internship_posts ip ON c.company_id = ip.company_id
-      WHERE 1=1 ${companyFilters}
-    `,
-    totalReviews: `SELECT COUNT(*) as count FROM review ${startDate && endDate ? " WHERE review_date BETWEEN ? AND ?" : ""}`,
-    totalInterns: `SELECT COUNT(*) as count FROM student`,
-    positionDistribution: `
+    const sql = `
       SELECT 
-        TRIM(REPLACE(REPLACE(ip.internship_title, 'Internship', ''), 'Intern', '')) as name,
-        COUNT(*) as value
-      FROM internship_posts ip
-      JOIN company c ON ip.company_id = c.company_id
-      WHERE 1=1 ${companyFilters}
-      GROUP BY name
-      ORDER BY value DESC
-      LIMIT 5
-    `,
-    barChartData: `
-      SELECT COALESCE(c.company_name, 'บริษัทอื่น') as name, COUNT(ip.internship_posts_id) as value
-      FROM company c
-      JOIN internship_posts ip ON c.company_id = ip.company_id
-      WHERE 1=1 ${companyFilters}
-      GROUP BY c.company_id, c.company_name
-      ORDER BY value DESC
-      LIMIT 5
-    `
-  };
+        internship_posts_id AS post_id,
+        internship_title,
+        internship_location,
+        internship_duration,
+        internship_compensation,
+        internship_description,
+        internship_responsibilities,
+        internship_requirements,
+        internship_working_method,
+        internship_expired_date,
+        internship_status
+      FROM internship_posts 
+      WHERE company_id = ?
+    `;
 
-  const results = {};
-  const keys = Object.keys(queries);
-  let completed = 0;
+    const [results] = await db.query(sql, [id]);
+    res.json(results);
 
-  keys.forEach(key => {
-    let queryParams = [];
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(err);
+  }
+});
 
-    switch (key) {
-      case 'openPosts':
-      case 'closedPosts':
-      case 'positionDistribution':
-      case 'barChartData':
-      case 'totalCompanies':
-        queryParams = companyParamsWithFilters;
-        break;
-      case 'totalReviews':
-        queryParams = dateParams;
-        break;
-      case 'totalInterns':
-        queryParams = [];
-        break;
-      default:
-        queryParams = [];
-    }
 
-    db.query(queries[key], queryParams, (err, rows) => {
-      if (err) {
-        console.error(`Error fetching ${key}:`, err);
-        results[key] = key.includes('total') || key.includes('Posts') ? 0 : [];
-      } else {
-        results[key] = (key.includes('total') || key.includes('Posts')) ? rows[0].count : rows;
-      }
+// ==================================================
+// GET REVIEWS (FIXED + JOIN STUDENT)
+// ==================================================
+app.get("/api/reviews/company/:id", async (req, res) => {
+  try {
+    const companyId = req.params.id;
 
-      completed++;
-      if (completed === keys.length) {
-        res.json(results);
-      }
+    const sql = `
+      SELECT 
+        r.review_id AS review_id,
+        s.student_name AS reviewer_name,   -- ✅ ชื่อผู้รีวิว
+        r.review_sum_rating AS rating,     -- ✅ คะแนนรวม
+        r.review_work_rating,
+        r.review_life_rating,
+        r.review_commu_rating,
+        r.review_comment AS comment,
+        r.review_date AS created_at
+      FROM review r
+      LEFT JOIN student s 
+        ON r.student_id = s.student_id
+      WHERE r.company_id = ?
+      ORDER BY r.review_date DESC
+    `;
+
+    const [rows] = await db.query(sql, [companyId]);
+
+    res.json(rows);
+
+  } catch (err) {
+    console.error("❌ GET REVIEWS ERROR:", err);
+    res.status(500).json({
+      error: "fetch reviews error"
     });
-  });
+  }
 });
 
 // ==================================================
-app.get("/api/dashboard/filters", (req, res) => {
-  const positionQuery = "SELECT DISTINCT internship_title FROM internship_posts WHERE internship_title IS NOT NULL AND internship_title != '' ORDER BY internship_title";
-  const statusOptions = [ 'all', 'open', 'closed' ];
+// CREATE REVIEW
+// ==================================================
+app.post("/api/reviews", async (req, res) => {
+  try {
+    let {
+      company_id,
+      student_id,
+      review_sum_rating,
+      review_work_rating,
+      review_life_rating,
+      review_commu_rating,
+      review_comment
+    } = req.body;
 
-  db.query(positionQuery, (posErr, posRows) => {
-    if (posErr) {
-      console.error("Error fetching position filters:", posErr);
-      return res.status(500).json({ message: "Error fetching position filters" });
+    company_id = Number(company_id);
+    student_id = Number(student_id);
+
+    const sql = `
+      INSERT INTO review 
+      (company_id, student_id, review_sum_rating, review_work_rating, review_life_rating, review_commu_rating, review_comment, review_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+
+    const [result] = await db.query(sql, [
+      company_id,
+      student_id,
+      review_sum_rating,
+      review_work_rating,
+      review_life_rating,
+      review_commu_rating,
+      review_comment || ""
+    ]);
+
+    res.json({
+      message: "✅ Review created",
+      review_id: result.insertId
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// GET QUESTIONS
+// ===============================
+app.get('/api/questions', async (req, res) => {
+  try {
+    const { positions } = req.query;
+
+    if (!positions) {
+      return res.status(400).json({ message: "positions required" });
+    }
+    const positionIds = positions.split(',').map(Number);
+    const results = [];
+
+    for (const pos of positionIds) {
+      const [rows] = await db.query(
+        `SELECT 
+          question_id AS id,
+          quiz_question AS question_text,
+          position_id
+         FROM quiz_question 
+         WHERE position_id = ? 
+         ORDER BY RAND() 
+         LIMIT 5`,
+        [pos]
+      );
+
+      results.push(...rows);
     }
 
-    const positionOptions = posRows.map(row => row.internship_title);
-    res.json({ positionOptions, statusOptions });
-  });
+    res.json(results);
+
+  } catch (err) {
+    console.error("❌ GET QUESTIONS ERROR:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ==================================================
+// get position for quiz
+// ==================================================
+app.get('/api/positions', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM position');
+
+    const formatted = rows.map(p => ({
+      id: p.position_name,
+      position_id: p.position_id,
+      title: p.position_name,           // ✅ ใช้ชื่อจริง
+      description: p.position_description // ✅ อธิบายงาน
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ==================================================
+// SUBMIT QUIZ (SAVE SCORE)
+// ==================================================
+app.post("/api/quiz/submit", async (req, res) => {
+  try {
+    const { student_id, positions, answers } = req.body;
+
+    if (!student_id || !positions || !answers) {
+      return res.status(400).json({ message: "missing data" });
+    }
+
+    // =========================
+    // 1️⃣ CREATE QUIZ
+    // =========================
+    const [quizResult] = await db.query(
+      `INSERT INTO career_fit_quiz 
+      (student_id, position1, position2, position3)
+      VALUES (?, ?, ?, ?)`,
+      [student_id, positions[0], positions[1], positions[2]]
+    );
+
+    const quiz_id = quizResult.insertId;
+
+    // =========================
+    // 2️⃣ CALCULATE SCORE
+    // =========================
+    let scoreMap = {};
+
+    for (const ans of answers) {
+      const [q] = await db.query(
+        `SELECT position_id 
+         FROM quiz_question 
+         WHERE question_id = ?`,
+        [ans.question_id]
+      );
+
+      if (!q.length) continue;
+
+      const pos = q[0].position_id;
+
+      if (!scoreMap[pos]) scoreMap[pos] = 0;
+      scoreMap[pos] += ans.answer;
+    }
+
+    const score1 = scoreMap[positions[0]] || 0;
+    const score2 = scoreMap[positions[1]] || 0;
+    const score3 = scoreMap[positions[2]] || 0;
+
+    // =========================
+    // 3️⃣ SAVE RESULT
+    // =========================
+    await db.query(
+      `INSERT INTO quiz_result
+      (student_id, quiz_id, position_skill, position1, position2, position3, score1, score2, score3, quiz_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        student_id,
+        quiz_id,
+        "", // กัน error NOT NULL
+        positions[0],
+        positions[1],
+        positions[2],
+        score1,
+        score2,
+        score3
+      ]
+    );
+
+    res.json({
+      message: "saved",
+      quiz_id,
+      score1,
+      score2,
+      score3
+    });
+
+  } catch (err) {
+    console.error("❌ SUBMIT ERROR:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+
+// ==================================================
+// GET RESULT QUIZ (ล่าสุดของ user)
+// ==================================================
+app.get("/api/quiz/result/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+
+    const [rows] = await db.query(
+      `SELECT *
+       FROM quiz_result
+       WHERE student_id = ?
+       ORDER BY quiz_date DESC
+       LIMIT 1`,
+      [student_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "no result" });
+    }
+
+    res.json(rows[0]);
+
+  } catch (err) {
+    console.error("❌ RESULT ERROR:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
+// GET POSITION BY IDS (สำหรับหน้า RESULT)
+// ==================================================
+app.get("/api/positions/by-ids", async (req, res) => {
+  try {
+    const { ids } = req.query;
+    if (!ids) return res.json([]);
+
+    const idList = ids.split(",").map(Number);
+    const [rows] = await db.query(
+      "SELECT * FROM position WHERE position_id IN (?)",
+      [idList]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
+// FAVORITES
+// ==================================================
+app.get("/api/favorites/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+    const [rows] = await db.query(
+      "SELECT * FROM favorite WHERE student_id = ?",
+      [student_id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+app.post("/api/favorites", async (req, res) => {
+  try {
+    const { student_id, post_id } = req.body;
+    await db.query(
+      "INSERT INTO favorite (student_id, post_id) VALUES (?, ?)",
+      [student_id, post_id]
+    );
+    res.json({ message: "added" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+app.delete("/api/favorites", async (req, res) => {
+  try {
+    const { student_id, post_id } = req.body;
+    await db.query(
+      "DELETE FROM favorite WHERE student_id = ? AND post_id = ?",
+      [student_id, post_id]
+    );
+    res.json({ message: "deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });

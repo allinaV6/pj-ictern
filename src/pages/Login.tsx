@@ -1,102 +1,114 @@
-  import { useState } from "react";
-  import { useNavigate } from "react-router-dom";
-  import axios from "axios";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase";
 
-  function Login() {
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const navigate = useNavigate();
+export default function Login() {
+  const navigate = useNavigate();
 
-    const handleLogin = async (e: React.FormEvent) => {
-      e.preventDefault();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+
+    if (!email || !password) {
+      alert("กรุณากรอกอีเมลและรหัสผ่าน");
+      return;
+    }
 
     try {
-      const response = await axios.post(
-        "http://localhost:5002/api/login",
-        {
-          email: username,
-          password: password,
-        }
+      setLoading(true);
+
+      // 🔥 1. login ด้วย Firebase
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
       );
 
-        localStorage.setItem("user", JSON.stringify(response.data.user));
-        navigate("/posts");
-      } catch (error: unknown) {
-        alert("Username หรือ Password ไม่ถูกต้อง ❌");
-        if (axios.isAxiosError(error)) {
-          console.error(error.response?.data || error.message);
-        } else {
-          console.error(error);
-        }
+      const firebaseUser = userCredential.user;
+
+      console.log("✅ Firebase login:", firebaseUser.email);
+
+      // 🔥 2. ยิงไป backend เพื่อหา student
+      const res = await fetch("http://localhost:5000/api/auth/firebase-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: firebaseUser.email
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert("ไม่มี user ในระบบ (MySQL)");
+        return;
       }
-    };
 
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="bg-white px-12 py-10 rounded-xl shadow-lg max-w-md w-full text-center">
-          
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-blue-900 rounded-full flex items-center justify-center text-white font-bold text-lg">
-              Logo
-            </div>
-          </div>
+      console.log("✅ MySQL user:", data.user);
 
-          {/* Title */}
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Sign in
-          </h1>
-          <p className="text-gray-500 mb-8 text-base">
-            with your Mahidol University Accounts.
-          </p>
+      // 🔥 3. เก็บ user (มี student_id)
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-          {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-4 text-left">
-            
-            <div>
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded text-base 
-                focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-              />
-            </div>
+      alert("เข้าสู่ระบบสำเร็จ ✅");
 
-            <div>
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded text-base 
-                focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-              />
-            </div>
+      // 🔥 4. ไปหน้า posts
+      navigate("/posts");
 
-            <button
-              type="submit"
-              className="w-full bg-blue-900 text-white font-bold py-3 rounded 
-              text-base hover:bg-blue-800 transition duration-200"
-            >
-              Sign in
-            </button>
-          </form>
+    } catch (error: any) {
+      console.error(error);
 
-          <div className="mt-6 text-left">
-            <a
-              href="#"
-              className="text-blue-600 hover:underline text-base"
-            >
-              Forgot Password?
-            </a>
-          </div>
-        </div>
+      if (error.code === "auth/user-not-found") {
+        alert("ไม่พบบัญชีผู้ใช้");
+      } else if (error.code === "auth/wrong-password") {
+        alert("รหัสผ่านไม่ถูกต้อง");
+      } else {
+        alert("เข้าสู่ระบบไม่สำเร็จ");
+      }
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="bg-white w-full max-w-md p-8 rounded-lg shadow-sm border">
+        <h2 className="text-2xl font-bold text-blue-900 mb-6 text-center">
+          เข้าสู่ระบบ
+        </h2>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input
+            type="email"
+            placeholder="อีเมล"
+            className="w-full p-3 border rounded-lg"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="รหัสผ่าน"
+            className="w-full p-3 border rounded-lg"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-800 transition-colors"
+          >
+            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+          </button>
+        </form>
       </div>
-    );
-  }
-
-export default Login;
+    </div>
+  );
+}

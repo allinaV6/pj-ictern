@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 interface InternshipPostType {
   post_id: number;
   company_id: number;
+  company_name: string;
   internship_title: string;
   mou?: number;
   internship_status?: number;
@@ -18,7 +19,7 @@ interface InternshipPostType {
   internship_working_method: string;
   internship_link?: string;
   internship_expired_date: string;
-  company_name: string;
+  rating?: number;
 }
 
 function InternshipPosts() {
@@ -32,10 +33,11 @@ function InternshipPosts() {
   const [selectedPost, setSelectedPost] = useState<InternshipPostType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
+  const [sortType, setSortType] = useState("");
 
   useEffect(() => {
-    console.log("Fetching posts from http://localhost:5002/api/posts...");
-    fetch("http://localhost:5002/api/posts")
+    console.log("Fetching posts from http://localhost:5000/api/posts...");
+    fetch("http://localhost:5000/api/posts")
       .then((res) => {
         if (!res.ok) {
           console.error("Fetch error, status:", res.status);
@@ -60,16 +62,56 @@ function InternshipPosts() {
       });
   }, []);
 
-  const toggleFavorite = (id: number) => {
-    setFavoriteIds((prev) =>
-      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id]
-    );
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const studentId = user?.student_id;
+
+    if (!studentId) return;
+
+    fetch(`http://localhost:5000/api/favorites/${studentId}`)
+      .then(res => res.json())
+      .then(data => {
+        const ids = data.map((f: any) => f.post_id);
+        setFavoriteIds(ids);
+      });
+  }, []);
+
+  const toggleFavorite = async (postId: number) => {
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const studentId = user?.student_id;
+
+    if (!studentId) {
+      alert("กรุณาเข้าสู่ระบบก่อน");
+      return;
+    }
+
+    const isFav = favoriteIds.includes(postId);
+
+    if (isFav) {
+      await fetch("http://localhost:5000/api/favorites", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_id: studentId, post_id: postId })
+      });
+
+      setFavoriteIds(prev => prev.filter(id => id !== postId));
+    } else {
+      await fetch("http://localhost:5000/api/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_id: studentId, post_id: postId })
+      });
+
+      setFavoriteIds(prev => [...prev, postId]);
+    }
   };
 
   const filteredPosts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
 
-    return posts
+    let result = posts
       .filter((post) => {
         if (!keyword) return true;
 
@@ -86,7 +128,34 @@ function InternshipPosts() {
         if (!showFavoritesOnly) return true;
         return favoriteIds.includes(post.post_id);
       });
-  }, [posts, searchTerm, showFavoritesOnly, favoriteIds]);
+
+    // 🔥 SORT
+    if (sortType === "compensation") {
+      result.sort((a, b) =>
+        Number(b.internship_compensation) - Number(a.internship_compensation)
+      );
+    }
+
+    if (sortType === "duration") {
+      result.sort((a, b) =>
+        Number(b.internship_duration) - Number(a.internship_duration)
+      );
+    }
+
+    if (sortType === "date") {
+      result.sort(
+        (a, b) =>
+          new Date(b.internship_expired_date).getTime() -
+          new Date(a.internship_expired_date).getTime()
+      );
+    }
+
+    if (sortType === "rating") {
+      result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    }
+
+    return result;
+  }, [posts, searchTerm, showFavoritesOnly, favoriteIds, sortType]);
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -115,7 +184,7 @@ function InternshipPosts() {
             <div className="relative flex-grow min-w-[300px]">
               <input
                 type="text"
-                placeholder="ค้นหาตำแหน่งฝึกงานหรือบริษัท"
+                placeholder="ค้นหาตำแหน่งฝึกงาน"
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -123,21 +192,28 @@ function InternshipPosts() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
 
+            {/* 🔥 SORT */}
+            <select
+              value={sortType}
+              onChange={(e) => setSortType(e.target.value)}
+              className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700"
+            >
+              <option value="">เรียงตาม</option>
+              <option value="compensation">💰 เงินมากสุด</option>
+              <option value="duration">⏳ ระยะเวลามากสุด</option>
+              <option value="rating">⭐ rating สูงสุด</option>
+              <option value="date">📅 ล่าสุด</option>
+            </select>
+
+            {/* ❤️ favorite */}
             <button
               onClick={() => setShowFavoritesOnly((prev) => !prev)}
-              className={`px-5 py-2.5 border rounded-lg flex items-center gap-2 transition ${
-                showFavoritesOnly
-                  ? "bg-blue-900 text-white border-blue-900"
-                  : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
-              }`}
+              className={`px-5 py-2.5 border rounded-lg flex items-center gap-2 ${showFavoritesOnly ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white text-gray-700 border-gray-300'}`}
             >
-              <Heart
-                size={16}
-                className={`${showFavoritesOnly ? 'text-white' : 'text-gray-700'}`}
-                fill={showFavoritesOnly ? "currentColor" : "none"}
-              />
+              <Heart size={18} fill={showFavoritesOnly ? "currentColor" : "none"} />
               รายการโปรด
             </button>
+
           </div>
         </div>
 
@@ -213,7 +289,7 @@ function InternshipPosts() {
                     <Clock size={16} className="text-gray-400" />
                     ฝึกงาน {post.internship_duration} เดือนขึ้นไป
                   </div>
-                  <div className="flex items-center gap-2 text-[15px] text-green-600 font-semibold">
+                  <div className="flex items-center gap-2 text-[13px] text-green-600 font-semibold">
                     ฿ {post.internship_compensation}
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-500">
