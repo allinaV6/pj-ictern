@@ -12,5 +12,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// 🔥 ต้องมีบรรทัดนี้เท่านั้น
 export const auth = getAuth(app);
