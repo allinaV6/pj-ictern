@@ -32,11 +32,17 @@ function InternshipPostDetailWrapper() {
 const AdminRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) => {
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const userRole = user?.role || "";
+  const roleStr = localStorage.getItem("role") || user?.role || "";
+  const normalizedUserRole = String(roleStr).trim().toLowerCase();
 
   if (!user) return <Navigate to="/" replace />;
   
-  if (!allowedRoles.includes(userRole)) {
+  const isAuthorized = allowedRoles.some(role => 
+    normalizedUserRole.includes(role.toLowerCase()) || 
+    role.toLowerCase().includes(normalizedUserRole)
+  );
+
+  if (!isAuthorized && normalizedUserRole !== "admin") {
     return <Navigate to="/posts" replace />;
   }
 

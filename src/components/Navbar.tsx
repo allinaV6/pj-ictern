@@ -10,17 +10,18 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
   
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const userRole = user?.role || "";
-  const normalizedUserRole = String(userRole).trim().toLowerCase();
+  const roleStr = localStorage.getItem("role") || user?.role || "";
+  const normalizedUserRole = String(roleStr).trim().toLowerCase();
 
-  const isAdminRole = normalizedUserRole === "admin";
+  const isAdminRole = normalizedUserRole.includes("admin");
 
   const getAdminDefaultRoute = () => {
-    return normalizedUserRole === "admin" ? "/admin/dashboard" : "/posts";
+    return isAdminRole ? "/admin/dashboard" : "/posts";
   };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("role");
     navigate("/");
   };
 
@@ -59,8 +60,8 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
               className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-bold text-white">
-                {user?.student_name?.charAt(0) || "U"}
+              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-bold text-white uppercase">
+                {(user?.student_name || user?.username || "U").charAt(0)}
               </div>
               <ChevronDown size={16} />
             </div>

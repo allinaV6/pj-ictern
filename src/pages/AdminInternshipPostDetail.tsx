@@ -69,8 +69,8 @@ export default function AdminInternshipPostDetail() {
       try {
         setLoading(true);
         const [postRes, companiesRes] = await Promise.all([
-          axios.get<PostResponse>(`http://localhost:5002/api/posts/${id}`),
-          axios.get<Company[]>('http://localhost:5002/api/companies')
+          axios.get<PostResponse>(`http://localhost:5000/api/posts/${id}`),
+          axios.get<Company[]>('http://localhost:5000/api/companies')
         ]);
 
         const post = postRes.data;
@@ -146,7 +146,7 @@ export default function AdminInternshipPostDetail() {
       const user = userStr ? JSON.parse(userStr) : null;
       const account_id = user?.id;
 
-      await axios.put(`http://localhost:5002/api/posts/${id}`, { ...formData, company_id, account_id, internship_compensation });
+      await axios.put(`http://localhost:5000/api/posts/${id}`, { ...formData, company_id, account_id, internship_compensation });
       alert('แก้ไขข้อมูลสำเร็จ');
       navigate('/admin/internship-posts');
     } catch (error) {
@@ -158,7 +158,7 @@ export default function AdminInternshipPostDetail() {
   const handleDelete = async () => {
     if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?')) {
       try {
-        await axios.delete(`http://localhost:5002/api/posts/${id}`);
+        await axios.delete(`http://localhost:5000/api/posts/${id}`);
         alert('ลบโพสต์สำเร็จ');
         navigate('/admin/internship-posts');
       } catch (error) {

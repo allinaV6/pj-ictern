@@ -46,7 +46,7 @@ export default function AdminDashboard() {
         const params: any = { startDate, endDate };
         if (positionFilter !== 'all') params.position = positionFilter;
 
-        const response = await axios.get(`http://localhost:5002/api/dashboard/summary`, {
+        const response = await axios.get(`http://localhost:5000/api/dashboard/summary`, {
           params
         });
         setData(response.data);
@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchFilters = async () => {
       try {
-        const response = await axios.get(`http://localhost:5002/api/dashboard/filters`);
+        const response = await axios.get(`http://localhost:5000/api/dashboard/filters`);
         setPositionOptions(response.data.positionOptions || []);
       } catch (error) {
         console.error('Error fetching dashboard filters:', error);

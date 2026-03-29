@@ -10,7 +10,7 @@ export default function AdminCompanyDetail() {
     if (!value) return '';
     return value.startsWith('http://') || value.startsWith('https://')
       ? value
-      : `http://localhost:5002${value}`;
+      : `http://localhost:5000${value}`;
   };
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -40,7 +40,7 @@ export default function AdminCompanyDetail() {
     try {
       setUploading(true);
       const b64 = await fileToBase64(file);
-      const resp = await axios.post('http://localhost:5002/api/uploads/logo', {
+      const resp = await axios.post('http://localhost:5000/api/uploads/logo', {
         filename: file.name,
         data: b64,
       });
@@ -58,7 +58,7 @@ export default function AdminCompanyDetail() {
   };
 
   useEffect(() => {
-    axios.get(`http://localhost:5002/api/company/${id}`)
+    axios.get(`http://localhost:5000/api/companies/${id}`)
       .then((res) => {
         const c = res.data;
         setForm({
@@ -79,7 +79,7 @@ export default function AdminCompanyDetail() {
 
   const handleSave = async () => {
     try {
-      await axios.put(`http://localhost:5002/api/companies/${id}`, form);
+      await axios.put(`http://localhost:5000/api/companies/${id}`, form);
       alert('บันทึกข้อมูลสำเร็จ');
       navigate('/admin/companies');
     } catch (e) {
@@ -91,7 +91,7 @@ export default function AdminCompanyDetail() {
   const handleDelete = async () => {
     if (!confirm('ยืนยันการลบบริษัทนี้?')) return;
     try {
-      await axios.delete(`http://localhost:5002/api/companies/${id}`);
+      await axios.delete(`http://localhost:5000/api/companies/${id}`);
       alert('ลบข้อมูลสำเร็จ');
       navigate('/admin/companies');
     } catch (e) {

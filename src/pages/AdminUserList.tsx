@@ -170,7 +170,7 @@ export default function AdminUserList() {
         alert(`นำเข้าเฉพาะผู้ใช้ประเภท ${roleFilter} เท่านั้น; แยกข้อมูลประเภทอื่นออกแล้ว`);
       }
 
-      const response = await axios.post('http://localhost:5002/api/users/import', filteredImported);
+      const response = await axios.post('http://localhost:5000/api/users/import', filteredImported);
       const updatedCount = response.data?.updatedCount ?? 0;
 
       if (updatedCount === 0) {
@@ -199,7 +199,7 @@ export default function AdminUserList() {
   const refreshUsers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5002/api/users?role=${viewMode}`, {
+      const res = await axios.get(`http://localhost:5000/api/users?role=${viewMode}`, {
         headers: {
           'Cache-Control': 'no-cache',
           Pragma: 'no-cache',
@@ -253,7 +253,7 @@ export default function AdminUserList() {
   const handleDelete = async (accountId: number) => {
     if (!confirm('ยืนยันการลบผู้ใช้นี้?')) return;
     try {
-      await axios.delete(`http://localhost:5002/api/users/${accountId}`);
+      await axios.delete(`http://localhost:5000/api/users/${accountId}`);
       setUsers((prev) => prev.filter((u) => u.account_id !== accountId));
       setOpenMenuAccountId(null);
     } catch (e) {

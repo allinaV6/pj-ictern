@@ -9,7 +9,7 @@ export default function AdminCompanyForm() {
     if (!value) return '';
     return value.startsWith('http://') || value.startsWith('https://')
       ? value
-      : `http://localhost:5002${value}`;
+      : `http://localhost:5000${value}`;
   };
   const [form, setForm] = useState({
     company_name: '',
@@ -29,7 +29,7 @@ export default function AdminCompanyForm() {
     try {
       setUploading(true);
       const b64 = await fileToBase64(file);
-      const resp = await axios.post('http://localhost:5002/api/uploads/logo', {
+      const resp = await axios.post('http://localhost:5000/api/uploads/logo', {
         filename: file.name,
         data: b64,
       });
@@ -64,7 +64,7 @@ export default function AdminCompanyForm() {
       const userStr = localStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
       const account_id = user?.id;
-      await axios.post('http://localhost:5002/api/companies', { ...form, account_id });
+      await axios.post('http://localhost:5000/api/companies', { ...form, account_id });
       alert('บันทึกข้อมูลบริษัทสำเร็จ');
       navigate('/admin/companies');
     } catch (e) {

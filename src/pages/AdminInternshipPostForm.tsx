@@ -47,7 +47,7 @@ export default function AdminInternshipPostForm() {
 
   useEffect(() => {
     axios
-      .get<Company[]>('http://localhost:5002/api/companies')
+      .get<Company[]>('http://localhost:5000/api/companies')
       .then((response) => {
         setCompanies(response.data);
       })
@@ -92,7 +92,7 @@ export default function AdminInternshipPostForm() {
       const user = userStr ? JSON.parse(userStr) : null;
       const account_id = user?.id;
 
-      await axios.post('http://localhost:5002/api/posts', { ...formData, company_id, account_id, internship_compensation });
+      await axios.post('http://localhost:5000/api/posts', { ...formData, company_id, account_id, internship_compensation });
       alert('บันทึกสำเร็จ');
       navigate('/admin/internship-posts');
     } catch (error) {

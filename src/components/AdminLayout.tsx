@@ -15,7 +15,8 @@ export default function AdminLayout({ children }: Props) {
 
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const userRole = user?.role || "";
+  const roleStr = localStorage.getItem("role") || user?.role || "";
+  const normalizedUserRole = String(roleStr).trim().toLowerCase();
 
   const isDashboard = location.pathname === '/admin/dashboard';
   const isInternshipPosts = location.pathname.startsWith('/admin/internship-posts');
@@ -24,11 +25,12 @@ export default function AdminLayout({ children }: Props) {
   const isPositions = location.pathname.startsWith('/admin/positions');
 
   // RBAC permissions based on the table
-  const canSeeDashboard = ["Super Admin", "Dashboard Admin"].includes(userRole);
-  const canSeePosts = ["Super Admin", "Post Admin"].includes(userRole);
-  const canSeeCompanies = ["Super Admin", "Company Admin"].includes(userRole);
-  const canSeeUsers = ["Super Admin"].includes(userRole);
-  const canSeePositions = ["Super Admin", "Position Admin"].includes(userRole);
+  const isAdmin = normalizedUserRole.includes("admin");
+  const canSeeDashboard = isAdmin;
+  const canSeePosts = isAdmin;
+  const canSeeCompanies = isAdmin;
+  const canSeeUsers = isAdmin;
+  const canSeePositions = isAdmin;
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -57,7 +59,7 @@ export default function AdminLayout({ children }: Props) {
             </div>
             <div>
               <h3 className="font-bold text-gray-900">{user?.username || "Admin"}</h3>
-              <p className="text-xs text-blue-600 font-medium">{userRole}</p>
+              <p className="text-xs text-blue-600 font-medium">{roleStr}</p>
             </div>
           </div>
           <button

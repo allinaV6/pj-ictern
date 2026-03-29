@@ -511,6 +511,94 @@ app.delete("/api/users/:id", async (req, res) => {
 });
 
 // ==================================================
+// GET ALL COMPANIES
+// ==================================================
+app.get("/api/companies", async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT * FROM company");
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  }
+});
+
+// ==================================================
+// DASHBOARD
+// ==================================================
+app.get("/api/dashboard/summary", async (req, res) => {
+  try {
+    const { startDate, endDate, position } = req.query;
+    
+    // Total Companies
+    const [companies] = await db.query("SELECT COUNT(*) as count FROM company");
+    
+    // Total Reviews
+    const [reviews] = await db.query("SELECT COUNT(*) as count FROM review");
+    
+    // Total Interns (students who are currently interning)
+    const [interns] = await db.query("SELECT COUNT(DISTINCT student_id) as count FROM internship_of_student WHERE end_date IS NULL");
+    
+    // Open/Closed Posts
+    let postsSql = "SELECT internship_status, COUNT(*) as count FROM internship_posts";
+    let postsParams = [];
+    if (startDate && endDate) {
+        postsSql += " WHERE internship_create_date BETWEEN ? AND ?";
+        postsParams.push(startDate, endDate);
+    }
+    postsSql += " GROUP BY internship_status";
+    const [postStats] = await db.query(postsSql, postsParams);
+    
+    let openPosts = 0;
+    let closedPosts = 0;
+    postStats.forEach(stat => {
+        if (stat.internship_status === 1) openPosts = stat.count;
+        else if (stat.internship_status === 0) closedPosts = stat.count;
+    });
+
+    // Position Distribution
+    const [posDist] = await db.query(`
+        SELECT p.position_name as name, COUNT(*) as value 
+        FROM internship_posts ip 
+        JOIN position p ON ip.internship_title LIKE CONCAT('%', p.position_name, '%')
+        GROUP BY p.position_name
+    `);
+
+    // Bar Chart Data (Posts per company)
+    const [barData] = await db.query(`
+        SELECT c.company_name as name, COUNT(*) as value 
+        FROM internship_posts ip 
+        JOIN company c ON ip.company_id = c.company_id 
+        GROUP BY c.company_id 
+        LIMIT 10
+    `);
+
+    res.json({
+      openPosts,
+      closedPosts,
+      totalCompanies: companies[0].count,
+      totalReviews: reviews[0].count,
+      totalInterns: interns[0].count,
+      positionDistribution: posDist,
+      barChartData: barData
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+app.get("/api/dashboard/filters", async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT position_name FROM position");
+    res.json({ positionOptions: rows.map(r => r.position_name) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
 // GET ALL POSTS
 // ==================================================
 app.get("/api/posts", async (req, res) => {
@@ -663,8 +751,10 @@ app.get("/api/reviews/company/:id", async (req, res) => {
         r.review_comment AS comment,
         r.review_date AS created_at
       FROM review r
+      LEFT JOIN internship_of_student ios
+        ON r.student_internship_id = ios.student_internship_id
       LEFT JOIN student s 
-        ON r.student_id = s.student_id
+        ON ios.student_id = s.student_id
       WHERE r.company_id = ?
       ORDER BY r.review_date DESC
     `;
@@ -701,13 +791,14 @@ app.post("/api/reviews", async (req, res) => {
 
     const sql = `
       INSERT INTO review 
-      (company_id, student_id, review_sum_rating, review_work_rating, review_life_rating, review_commu_rating, review_comment, review_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      (company_id, student_id, student_internship_id, review_sum_rating, review_work_rating, review_life_rating, review_commu_rating, review_comment, review_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
 
     const [result] = await db.query(sql, [
       company_id,
       student_id,
+      null, // student_internship_id เป็น NULL ได้หากไม่ได้ผูกกับการฝึกงานเฉพาะครั้ง
       review_sum_rating,
       review_work_rating,
       review_life_rating,

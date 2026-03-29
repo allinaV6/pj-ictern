@@ -12,7 +12,7 @@ export default function AdminCompanyList() {
     if (!value) return '';
     return value.startsWith('http://') || value.startsWith('https://')
       ? value
-      : `http://localhost:5002${value}`;
+      : `http://localhost:5000${value}`;
   };
   const [companies, setCompanies] = useState<Array<{
     company_id: number;
@@ -145,7 +145,7 @@ export default function AdminCompanyList() {
   };
 
   useEffect(() => {
-    axios.get('http://localhost:5002/api/companies')
+    axios.get('http://localhost:5000/api/companies')
       .then((res) => setCompanies(res.data))
       .catch((e) => console.error('fetch companies error:', e))
       .finally(() => setLoading(false));
@@ -410,9 +410,9 @@ export default function AdminCompanyList() {
                       onClick={async () => {
                         if (!confirm('ยืนยันการลบบริษัทนี้?')) return;
                         try {
-                          await axios.delete(`http://localhost:5002/api/companies/${company.company_id}`);
+                          await axios.delete(`http://localhost:5000/api/companies/${company.company_id}`);
                           // Refresh list quickly
-                          const res = await axios.get('http://localhost:5002/api/companies');
+                          const res = await axios.get('http://localhost:5000/api/companies');
                           setCompanies(res.data);
                           setOpenMenuCompanyId(null);
                         } catch (e) {

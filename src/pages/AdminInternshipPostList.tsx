@@ -158,7 +158,7 @@ export default function AdminInternshipPostList() {
 
   const fetchPosts = async () => {
     try {
-      const response = await axios.get('http://localhost:5002/api/posts');
+      const response = await axios.get('http://localhost:5000/api/posts');
       setPosts(response.data);
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -170,7 +170,7 @@ export default function AdminInternshipPostList() {
   const handleDelete = async (id: number) => {
     if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?')) {
       try {
-        await axios.delete(`http://localhost:5002/api/posts/${id}`);
+        await axios.delete(`http://localhost:5000/api/posts/${id}`);
         setPosts((prev) => prev.filter(post => post.post_id !== id));
         setOpenMenuPostId(null);
       } catch (error) {

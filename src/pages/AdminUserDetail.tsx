@@ -38,8 +38,8 @@ export default function AdminUserDetail() {
 
   useEffect(() => {
     Promise.all([
-      axios.get<UserApiResponse>(`http://localhost:5002/api/users/${id}`),
-      axios.get<CompanyApiItem[]>('http://localhost:5002/api/companies')
+      axios.get<UserApiResponse>(`http://localhost:5000/api/users/${id}`),
+      axios.get<CompanyApiItem[]>('http://localhost:5000/api/companies')
     ])
       .then(([userRes, companiesRes]) => {
         const u = userRes.data;
@@ -89,7 +89,7 @@ export default function AdminUserDetail() {
       if (typeof form.internship_company_id === 'number') {
         payload.internship_company_id = form.internship_company_id;
       }
-      await axios.put(`http://localhost:5002/api/users/${id}`, payload);
+      await axios.put(`http://localhost:5000/api/users/${id}`, payload);
       alert('บันทึกข้อมูลสำเร็จ');
       navigate('/admin/users');
     } catch (e) {
@@ -105,7 +105,7 @@ export default function AdminUserDetail() {
   const handleDelete = async () => {
     if (!confirm('ยืนยันการลบผู้ใช้นี้?')) return;
     try {
-      await axios.delete(`http://localhost:5002/api/users/${id}`);
+      await axios.delete(`http://localhost:5000/api/users/${id}`);
       alert('ลบผู้ใช้สำเร็จ');
       navigate('/admin/users');
     } catch (e) {
