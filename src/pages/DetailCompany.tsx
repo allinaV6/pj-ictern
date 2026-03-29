@@ -58,12 +58,27 @@ export default function DetailCompany() {
   const [companyRes, postsRes, reviewRes] = await Promise.all([
   axios.get(`http://localhost:5000/api/company/${id}`),
   axios.get(`http://localhost:5000/api/posts/company/${id}`),
-  axios.get(`http://localhost:5000/api/reviews/company/${id}`) // ✅ เพิ่ม
+  axios.get(`http://localhost:5000/api/reviews/company/${id}`) 
 ]);
 
 setCompany(companyRes.data);
 setActiveJobs(postsRes.data);
 setReviews(reviewRes.data); // ✅ เพิ่ม
+// ⭐ เพิ่มตรงนี้
+if (reviewRes.data.length > 0) {
+  const total = reviewRes.data.reduce(
+    (sum: number, r: any) => sum + (r.rating || 0),
+    0
+  );
+
+  const avg = total / reviewRes.data.length;
+
+  setAvgRating(avg);
+  setTotalReviews(reviewRes.data.length);
+} else {
+  setAvgRating(0);
+  setTotalReviews(0);
+}
         setError("");
       } catch (err) {
         console.error("Error fetching company data:", err);
@@ -126,9 +141,13 @@ setReviews(reviewRes.data); // ✅ เพิ่ม
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-blue-900">{company.company_name}</h2>
-                <div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
-                  ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
-                </div>
+                <div className="flex items-center gap-1 text-yellow-500 text-sm font-bold">
+              <Star size={16} fill="currentColor" />
+              {avgRating.toFixed(1)}
+              <span className="text-gray-400 font-normal ml-1">
+                ({totalReviews} Reviews)
+              </span>
+            </div>
               </div>
             </div>
           </div>
@@ -308,9 +327,13 @@ setReviews(reviewRes.data); // ✅ เพิ่ม
                 <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedJob.internship_title}</h2>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-gray-600 font-medium">{company?.company_name}</span>
-                  <div className="flex items-center gap-1 text-gray-400 font-bold">
-                    ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
-                  </div>
+                  <div className="flex items-center gap-1 text-yellow-500 font-bold">
+  <Star size={16} fill="currentColor" />
+  {avgRating.toFixed(1)}
+  <span className="text-gray-400 font-normal ml-1">
+    ({totalReviews} Reviews)
+  </span>
+</div>
                 </div>
               </div>
 

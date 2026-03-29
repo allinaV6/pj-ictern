@@ -30,6 +30,7 @@ function InternshipPosts() {
   const [selectedPost, setSelectedPost] = useState<InternshipPostType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
+  const [sortType, setSortType] = useState("");
 
   useEffect(() => {
     console.log("Fetching posts from http://localhost:5000/api/posts...");

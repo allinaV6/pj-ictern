@@ -224,7 +224,19 @@ app.get("/api/reviews/company/:id", async (req, res) => {
     });
   }
 });
+// ==================================================
+// GET REVIEWS (TOP PAGES)
+// ==================================================
+app.get('/api/reviews/company/:id', async (req, res) => {
+  const { id } = req.params;
 
+  const [rows] = await db.query(
+    'SELECT * FROM reviews WHERE company_id = ?',
+    [id]
+  );
+
+  res.json(rows);
+});
 // ==================================================
 // CREATE REVIEW
 // ==================================================
@@ -306,8 +318,26 @@ app.get('/api/questions', async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+// ==================================================
+// get position for quiz
+// ==================================================
+app.get('/api/positions', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM position');
 
+    const formatted = rows.map(p => ({
+      id: p.position_name,
+      position_id: p.position_id,
+      title: p.position_name,           // ✅ ใช้ชื่อจริง
+      description: p.position_description // ✅ อธิบายงาน
+    }));
 
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 // ==================================================
 // SUBMIT QUIZ (SAVE SCORE)
 // ==================================================
