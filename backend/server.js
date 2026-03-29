@@ -477,7 +477,51 @@ app.get("/api/positions/by-ids", async (req, res) => {
     res.status(500).json({ error: "server error" });
   }
 });
+
+
 // ==================================================
+// ADD FAVORITE
+// ==================================================
+// ==================================================
+app.post('/api/favorites', async (req, res) => {
+  const { student_id, post_id } = req.body;
+
+  await db.query(
+    'INSERT INTO favorites (student_id, post_id) VALUES (?, ?)',
+    [student_id, post_id]
+  );
+
+  res.json({ success: true });
+});
+// ==================================================
+// REMOVE FAVORITE
+// ==================================================
+// ==================================================
+app.delete('/api/favorites', async (req, res) => {
+  const { student_id, post_id } = req.body;
+
+  await db.query(
+    'DELETE FROM favorites WHERE student_id = ? AND post_id = ?',
+    [student_id, post_id]
+  );
+
+  res.json({ success: true });
+});
+
+// ==================================================
+// GET FAVORITE FROM USER
+// ==================================================
+// ==================================================
+app.get('/api/favorites/:student_id', async (req, res) => {
+  const { student_id } = req.params;
+
+  const [rows] = await db.query(
+    'SELECT post_id FROM favorites WHERE student_id = ?',
+    [student_id]
+  );
+
+  res.json(rows);
+});
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

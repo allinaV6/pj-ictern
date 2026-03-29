@@ -58,34 +58,95 @@ function InternshipPosts() {
         setLoading(false);
       });
   }, []);
+useEffect(() => {
+  const studentId = localStorage.getItem("student_id");
 
-  const toggleFavorite = (id: number) => {
-    setFavoriteIds((prev) =>
-      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id]
-    );
-  };
+  if (!studentId) return;
+
+  fetch(`http://localhost:5000/api/favorites/${studentId}`)
+    .then(res => res.json())
+    .then(data => {
+      const ids = data.map((f: any) => f.post_id);
+      setFavoriteIds(ids);
+    });
+}, []);
+  const toggleFavorite = async (postId: number) => {
+  const studentId = localStorage.getItem("student_id");
+
+  if (!studentId) {
+    alert("กรุณาเข้าสู่ระบบก่อน");
+    return;
+  }
+
+  const isFav = favoriteIds.includes(postId);
+
+  if (isFav) {
+    await fetch("http://localhost:5000/api/favorites", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, post_id: postId })
+    });
+
+    setFavoriteIds(prev => prev.filter(id => id !== postId));
+  } else {
+    await fetch("http://localhost:5000/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, post_id: postId })
+    });
+
+    setFavoriteIds(prev => [...prev, postId]);
+  }
+};
 
   const filteredPosts = useMemo(() => {
-    const keyword = searchTerm.trim().toLowerCase();
+  const keyword = searchTerm.trim().toLowerCase();
 
-    return posts
-      .filter((post) => {
-        if (!keyword) return true;
+  let result = posts
+    .filter((post) => {
+      if (!keyword) return true;
 
-        const text = `
-          ${post.internship_title}
-          ${post.company_name}
-          ${post.internship_location}
-          ${post.internship_description}
-        `.toLowerCase();
+      const text = `
+        ${post.internship_title}
+        ${post.company_name}
+        ${post.internship_location}
+        ${post.internship_description}
+      `.toLowerCase();
 
-        return text.includes(keyword);
-      })
-      .filter((post) => {
-        if (!showFavoritesOnly) return true;
-        return favoriteIds.includes(post.post_id);
-      });
-  }, [posts, searchTerm, showFavoritesOnly, favoriteIds]);
+      return text.includes(keyword);
+    })
+    .filter((post) => {
+      if (!showFavoritesOnly) return true;
+      return favoriteIds.includes(post.post_id);
+    });
+
+  // 🔥 ใส่ sort ตรงนี้
+  if (sortType === "compensation") {
+    result.sort((a, b) =>
+      Number(b.internship_compensation) - Number(a.internship_compensation)
+    );
+  }
+
+  if (sortType === "duration") {
+    result.sort((a, b) =>
+      Number(b.internship_duration) - Number(a.internship_duration)
+    );
+  }
+
+  if (sortType === "date") {
+    result.sort(
+      (a, b) =>
+        new Date(b.internship_expired_date).getTime() -
+        new Date(a.internship_expired_date).getTime()
+    );
+  }
+
+  if (sortType === "rating") {
+    result.sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
+  }
+
+  return result; // 👈 ต้องมี
+}, [posts, searchTerm, showFavoritesOnly, favoriteIds, sortType]);
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -111,33 +172,40 @@ function InternshipPosts() {
           </h2>
 
           <div className="flex gap-4">
-            <div className="relative flex-grow min-w-[300px]">
-              <input
-                type="text"
-                placeholder="ค้นหาตำแหน่งฝึกงาน"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            </div>
 
-            <button
-              onClick={() => setShowFavoritesOnly((prev) => !prev)}
-              className={`px-5 py-2.5 border rounded-lg flex items-center gap-2 transition ${
-                showFavoritesOnly
-                  ? "bg-blue-900 text-white border-blue-900"
-                  : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
-              }`}
-            >
-              <Heart
-                size={16}
-                className={`${showFavoritesOnly ? 'text-white' : 'text-gray-700'}`}
-                fill={showFavoritesOnly ? "currentColor" : "none"}
-              />
-              รายการโปรด
-            </button>
-          </div>
+  {/* 🔍 search */}
+  <div className="relative flex-grow min-w-[300px]">
+    <input
+      type="text"
+      placeholder="ค้นหาตำแหน่งฝึกงาน"
+      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+    />
+  </div>
+
+  {/* 🔥 SORT (เพิ่มตรงนี้) */}
+  <select
+    value={sortType}
+    onChange={(e) => setSortType(e.target.value)}
+    className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700"
+  >
+    <option value="">เรียงตาม</option>
+    <option value="compensation">💰 เงินมากสุด</option>
+    <option value="duration">⏳ ระยะเวลามากสุด</option>
+    <option value="rating">⭐ rating สูงสุด</option>
+    <option value="date">📅 ล่าสุด</option>
+  </select>
+
+  {/* ❤️ favorite */}
+  <button
+    onClick={() => setShowFavoritesOnly((prev) => !prev)}
+    className="px-5 py-2.5 border rounded-lg flex items-center gap-2"
+  >
+    ❤️ รายการโปรด
+  </button>
+
+</div>
         </div>
 
         {loading && <p className="text-center py-10">กำลังโหลดข้อมูล...</p>}
@@ -209,7 +277,7 @@ function InternshipPosts() {
                     ฝึกงาน {post.internship_duration} เดือนขึ้นไป
                   </div>
                   <div className="flex items-center gap-2 text-[13px] text-green-600 font-semibold">
-                    ฿ {post.internship_compensation}
+                    ฿ {post.internship_compensation} บาท/เดือน
                   </div>
                   <div className="flex items-center gap-2 text-[13px] text-gray-500">
                     <Calendar size={16} className="text-gray-400" />
