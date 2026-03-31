@@ -191,10 +191,10 @@ useEffect(() => {
     className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700"
   >
     <option value="">เรียงตาม</option>
-    <option value="compensation">💰 เงินมากสุด</option>
-    <option value="duration">⏳ ระยะเวลามากสุด</option>
+    <option value="compensation">💰 ค่าตอบเเทนมากสุด</option>
+    <option value="duration">⏳ ระยะเวลาฝึกงานมากสุด</option>
     <option value="rating">⭐ rating สูงสุด</option>
-    <option value="date">📅 ล่าสุด</option>
+    <option value="date">📅 ประกาศล่าสุด</option>
   </select>
 
   {/* ❤️ favorite */}
