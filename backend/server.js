@@ -963,9 +963,17 @@ app.get("/api/posts", async (req, res) => {
         i.mou,
         c.company_id,
         c.company_name,
-        c.company_logo
+        c.company_logo,
+
+        -- 🔥 ตัวนี้แหละสำคัญ
+        ROUND(AVG(r.review_sum_rating),1) AS rating,
+        COUNT(r.review_id) AS review_count
+
       FROM internship_posts i
       JOIN company c ON i.company_id = c.company_id
+      LEFT JOIN review r ON c.company_id = r.company_id
+
+      GROUP BY i.internship_posts_id
     `;
 
     const [results] = await db.query(sql);
@@ -1076,7 +1084,50 @@ app.get("/api/posts/company/:id", async (req, res) => {
   }
 });
 
+// ==================================================
+// GET POST DETAIL + COMPANY RATING
+// ==================================================
+app.get('/api/posts/detail/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    const [rows] = await db.query(`
+      SELECT 
+        i.internship_posts_id AS post_id,
+        i.internship_title,
+        i.internship_location,
+        i.internship_duration,
+        i.internship_description,
+        i.internship_responsibilities,
+        i.internship_requirements,
+        i.internship_compensation,
+        i.internship_working_method,
+        i.internship_link,
+        i.internship_expired_date,
+
+        c.company_id,
+        c.company_name,
+
+        -- 🔥 rating บริษัท
+        ROUND(AVG(r.review_sum_rating),1) AS rating,
+        COUNT(r.review_id) AS review_count
+
+      FROM internship_posts i
+      JOIN company c ON i.company_id = c.company_id
+      LEFT JOIN review r ON c.company_id = r.company_id
+
+      WHERE i.internship_posts_id = ?
+
+      GROUP BY i.internship_posts_id
+    `, [id]);
+
+    res.json(rows[0]);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
 // ==================================================
 // GET REVIEWS (FIXED + JOIN STUDENT)
 // ==================================================
