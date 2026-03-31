@@ -79,38 +79,6 @@ app.post("/api/auth/firebase-login", async (req, res) => {
   }
 });
 
-// ==================================================
-// GET ALL POSTS
-// ==================================================
-app.get("/api/posts", async (req, res) => {
-  try {
-    const sql = `
-      SELECT 
-        i.internship_posts_id AS post_id,
-        i.internship_title,
-        i.internship_location,
-        i.internship_duration,
-        i.internship_description,
-        i.internship_responsibilities,
-        i.internship_requirements,
-        i.internship_compensation,
-        i.internship_working_method,
-        i.internship_link,
-        i.internship_expired_date,
-        c.company_id,
-        c.company_name
-      FROM internship_posts i
-      JOIN company c ON i.company_id = c.company_id
-    `;
-
-    const [results] = await db.query(sql);
-    res.json(results);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json(err);
-  }
-});
 
 // ==================================================
 // GET POST BY ID
@@ -155,22 +123,41 @@ app.get("/api/posts/:id", async (req, res) => {
 // ==================================================
 // GET COMPANY BY ID
 // ==================================================
-app.get("/api/company/:id", async (req, res) => {
+app.get("/api/posts", async (req, res) => {
   try {
-    const { id } = req.params;
+    const sql = `
+      SELECT 
+        i.internship_posts_id AS post_id,
+        i.internship_title,
+        i.internship_location,
+        i.internship_duration,
+        i.internship_description,
+        i.internship_responsibilities,
+        i.internship_requirements,
+        i.internship_compensation,
+        i.internship_working_method,
+        i.internship_link,
+        i.internship_expired_date,
+        c.company_id,
+        c.company_name,
 
-    const sql = "SELECT * FROM company WHERE company_id = ?";
-    const [results] = await db.query(sql, [id]);
+        -- 🔥 ตรงนี้คือคำตอบ
+        ROUND(AVG(r.review_sum_rating),1) AS rating,
+        COUNT(r.review_id) AS review_count
 
-    if (results.length === 0) {
-      return res.status(404).json({ message: "Company not found" });
-    }
+      FROM internship_posts i
+      JOIN company c ON i.company_id = c.company_id
+      LEFT JOIN review r ON c.company_id = r.company_id
 
-    res.json(results[0]);
+      GROUP BY i.internship_posts_id
+    `;
+
+    const [results] = await db.query(sql);
+    res.json(results);
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Database error" });
+    res.status(500).json(err);
   }
 });
 

@@ -17,6 +17,8 @@ interface InternshipPostType {
   internship_working_method: string;
   internship_link?: string;
   internship_expired_date: string;
+  rating?: number;
+  review_count?: number;
 }
 
 function InternshipPosts() {
@@ -42,16 +44,20 @@ function InternshipPosts() {
         }
         return res.json();
       })
-      .then((data) => {
-        console.log("Fetched data:", data);
-        if (Array.isArray(data)) {
-          setPosts(data);
-        } else {
-          console.warn("Fetched data is not an array:", data);
-          setPosts([]);
-        }
-        setLoading(false);
-      })
+.then((data) => {
+  console.log("Fetched data:", data); // ✅ อันเดิม
+
+  if (Array.isArray(data)) {
+    setPosts(data);
+
+    console.log("🔥 POSTS AFTER SET:", data); // 👈 เพิ่มตรงนี้
+  } else {
+    console.warn("Fetched data is not an array:", data);
+    setPosts([]);
+  }
+
+  setLoading(false);
+})
       .catch((err) => {
         console.error("Fetch failed:", err);
         setError("ไม่สามารถโหลดข้อมูลได้: " + err.message);
@@ -252,9 +258,12 @@ useEffect(() => {
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
-                    ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
-                  </div>
+<div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
+  ⭐ {(post.rating ?? 0).toFixed(1)}
+  <span className="text-gray-300 font-normal ml-1">
+    ({post.review_count ?? 0} Reviews)
+  </span>
+</div>
                   <div className="flex items-center gap-1 text-green-600 text-[13px] font-medium">
                     <div className="w-4 h-4 rounded-full border-2 border-green-600 flex items-center justify-center">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
@@ -333,9 +342,12 @@ useEffect(() => {
                 <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedPost.internship_title}</h2>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
-                  <div className="flex items-center gap-1 text-gray-400 font-bold">
-                    ★ 0.0 <span className="text-gray-300 font-normal ml-1">(0 Reviews)</span>
-                  </div>
+<div className="flex items-center gap-1 text-yellow-500 font-bold">
+  ⭐ {(selectedPost?.rating ?? 0).toFixed(1)}
+  <span className="text-gray-400 font-normal ml-1">
+    ({selectedPost?.review_count ?? 0} Reviews)
+  </span>
+</div>
                 </div>
               </div>
 
