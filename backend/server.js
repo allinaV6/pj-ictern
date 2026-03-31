@@ -446,10 +446,7 @@ app.post("/api/users/import", async (req, res) => {
         await db.query('DELETE FROM quiz_result WHERE student_id = ?', [studentId]);
         await db.query('DELETE FROM career_fit_quiz WHERE student_id = ?', [studentId]);
         await db.query('DELETE FROM favorite WHERE student_id = ?', [studentId]);
-        await db.query(
-          'DELETE FROM review WHERE student_internship_id IN (SELECT student_internship_id FROM internship_of_student WHERE student_id = ?)',
-          [studentId]
-        );
+        await db.query('DELETE FROM review WHERE student_id = ?', [studentId]);
         await db.query('DELETE FROM internship_of_student WHERE student_id = ?', [studentId]);
         await db.query('DELETE FROM student WHERE student_id = ?', [studentId]);
       }
@@ -493,10 +490,7 @@ app.delete("/api/users/:id", async (req, res) => {
       await db.query("DELETE FROM quiz_result WHERE student_id = ?", [studentId]);
       await db.query("DELETE FROM career_fit_quiz WHERE student_id = ?", [studentId]);
       await db.query("DELETE FROM favorite WHERE student_id = ?", [studentId]);
-      await db.query(
-        "DELETE FROM review WHERE student_internship_id IN (SELECT student_internship_id FROM internship_of_student WHERE student_id = ?)",
-        [studentId]
-      );
+      await db.query("DELETE FROM review WHERE student_id = ?", [studentId]);
       await db.query("DELETE FROM internship_of_student WHERE student_id = ?", [studentId]);
       await db.query("DELETE FROM student WHERE student_id = ?", [studentId]);
     }
@@ -515,11 +509,175 @@ app.delete("/api/users/:id", async (req, res) => {
 // ==================================================
 app.get("/api/companies", async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM company");
+    const [rows] = await db.query(`
+      SELECT 
+        c.*, 
+        (SELECT COUNT(*) FROM internship_posts ip WHERE ip.company_id = c.company_id) as total_posts
+      FROM company c
+      ORDER BY c.company_id DESC
+    `);
     res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Database error" });
+  }
+});
+
+app.post("/api/companies", async (req, res) => {
+  try {
+    const {
+      company_name,
+      company_address,
+      company_type,
+      company_email,
+      company_phone_num,
+      company_link,
+      company_description,
+      company_logo,
+      company_status,
+      admin_id,
+      account_id
+    } = req.body;
+
+    // หา admin_id ถ้าไม่ได้ส่งมาโดยตรง แต่ส่ง account_id มา
+    let finalAdminId = admin_id;
+    if (!finalAdminId && account_id) {
+      const [adminRows] = await db.query("SELECT admin_id FROM admin WHERE account_id = ?", [account_id]);
+      if (adminRows.length > 0) {
+        finalAdminId = adminRows[0].admin_id;
+      }
+    }
+
+    // ถ้ายังไม่มี admin_id ให้หาตัวแรกมาใช้ก่อน (เพื่อกัน error NOT NULL)
+    if (!finalAdminId) {
+      const [allAdmins] = await db.query("SELECT admin_id FROM admin LIMIT 1");
+      if (allAdmins.length > 0) {
+        finalAdminId = allAdmins[0].admin_id;
+      }
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO company (
+        company_name, company_address, company_type, company_email, 
+        company_phone_num, company_link, company_description, 
+        company_logo, company_status, company_create_date, admin_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+      [
+        company_name, 
+        company_address || null, 
+        company_type || null, 
+        company_email || null, 
+        company_phone_num || null, 
+        company_link || null, 
+        company_description || null, 
+        company_logo || null, 
+        company_status || 1,
+        finalAdminId
+      ]
+    );
+
+    res.json({ message: "Company created", company_id: result.insertId });
+  } catch (err) {
+    console.error("❌ CREATE COMPANY ERROR:", err);
+    res.status(500).json({ message: "Database error", error: err.message });
+  }
+});
+
+app.get("/api/companies/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query("SELECT * FROM company WHERE company_id = ?", [id]);
+    if (rows.length === 0) return res.status(404).json({ message: "Company not found" });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  }
+});
+
+app.put("/api/companies/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      company_name,
+      company_address,
+      company_type,
+      company_email,
+      company_phone_num,
+      company_link,
+      company_description,
+      company_logo,
+      company_status
+    } = req.body;
+
+    await db.query(
+      `UPDATE company SET 
+        company_name = ?, company_address = ?, company_type = ?, 
+        company_email = ?, company_phone_num = ?, company_link = ?, 
+        company_description = ?, company_logo = ?, company_status = ? 
+      WHERE company_id = ?`,
+      [
+        company_name, company_address, company_type, company_email,
+        company_phone_num, company_link, company_description,
+        company_logo, company_status, id
+      ]
+    );
+
+    res.json({ message: "Company updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  }
+});
+
+app.delete("/api/companies/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query("DELETE FROM company WHERE company_id = ?", [id]);
+    res.json({ message: "Company deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Delete failed (Ensure no posts refer to this company)" });
+  }
+});
+
+// ==================================================
+// UPLOAD COMPANY LOGO (Base64)
+// ==================================================
+app.post("/api/uploads/logo", async (req, res) => {
+  try {
+    const { filename, data } = req.body;
+    if (!filename || !data) {
+      return res.status(400).json({ message: "Invalid upload data" });
+    }
+
+    const uploadsDir = path.join(__dirname, "uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir);
+    }
+
+    // Extract base64 data
+    const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ message: "Invalid base64 string" });
+    }
+
+    const buffer = Buffer.from(matches[2], "base64");
+    const ext = path.extname(filename) || ".png";
+    const newFilename = `logo_${Date.now()}${ext}`;
+    const filePath = path.join(uploadsDir, newFilename);
+
+    fs.writeFileSync(filePath, buffer);
+
+    // Return the accessible URL
+    res.json({
+      url: `/uploads/${newFilename}`,
+      message: "Upload successful"
+    });
+
+  } catch (err) {
+    console.error("❌ Upload error:", err);
+    res.status(500).json({ message: "Upload failed" });
   }
 });
 
@@ -529,58 +687,120 @@ app.get("/api/companies", async (req, res) => {
 app.get("/api/dashboard/summary", async (req, res) => {
   try {
     const { startDate, endDate, position } = req.query;
+    // position can be a string or an array of strings
+    const positions = Array.isArray(position) ? position : (position ? [position] : []);
+    const isFiltered = positions.length > 0 && !positions.includes('all');
     
-    // Total Companies
-    const [companies] = await db.query("SELECT COUNT(*) as count FROM company");
-    
-    // Total Reviews
-    const [reviews] = await db.query("SELECT COUNT(*) as count FROM review");
-    
-    // Total Interns (students who are currently interning)
-    const [interns] = await db.query("SELECT COUNT(DISTINCT student_id) as count FROM internship_of_student WHERE end_date IS NULL");
-    
-    // Open/Closed Posts
-    let postsSql = "SELECT internship_status, COUNT(*) as count FROM internship_posts";
+    // Helper to build WHERE clause for multiple positions using LIKE
+    const buildPositionFilter = (tableAlias, columnName, params) => {
+      if (!isFiltered) return "";
+      const conditions = positions.map(() => `${tableAlias ? tableAlias + '.' : ''}${columnName} LIKE CONCAT('%', ?, '%')`);
+      params.push(...positions);
+      return ` AND (${conditions.join(' OR ')})`;
+    };
+
+    // 1. Open/Closed Posts (Filtered by Date and Position)
+    let postsSql = "SELECT internship_status, COUNT(*) as count FROM internship_posts WHERE 1=1";
     let postsParams = [];
     if (startDate && endDate) {
-        postsSql += " WHERE internship_create_date BETWEEN ? AND ?";
+        postsSql += " AND internship_create_date BETWEEN ? AND ?";
         postsParams.push(startDate, endDate);
     }
+    postsSql += buildPositionFilter(null, 'internship_title', postsParams);
+    
     postsSql += " GROUP BY internship_status";
     const [postStats] = await db.query(postsSql, postsParams);
     
     let openPosts = 0;
     let closedPosts = 0;
-    postStats.forEach(stat => {
-        if (stat.internship_status === 1) openPosts = stat.count;
-        else if (stat.internship_status === 0) closedPosts = stat.count;
-    });
+    if (Array.isArray(postStats)) {
+      postStats.forEach(stat => {
+          if (Number(stat.internship_status) === 1) openPosts = Number(stat.count);
+          else if (Number(stat.internship_status) === 0) closedPosts = Number(stat.count);
+      });
+    }
 
-    // Position Distribution
-    const [posDist] = await db.query(`
-        SELECT p.position_name as name, COUNT(*) as value 
-        FROM internship_posts ip 
-        JOIN position p ON ip.internship_title LIKE CONCAT('%', p.position_name, '%')
-        GROUP BY p.position_name
-    `);
+    // 2. Total Companies (Filtered by Position if provided)
+    let companySql = "SELECT COUNT(DISTINCT company_id) as count FROM company c";
+    let companyParams = [];
+    if (isFiltered) {
+        companySql = "SELECT COUNT(DISTINCT company_id) as count FROM internship_posts WHERE 1=1";
+        companySql += buildPositionFilter(null, 'internship_title', companyParams);
+    }
+    const [companies] = await db.query(companySql, companyParams);
+    
+    // 3. Total Reviews (Filtered by Position if provided)
+    let reviewSql = "SELECT COUNT(*) as count FROM review";
+    let reviewParams = [];
+    if (isFiltered) {
+        reviewSql = `
+            SELECT COUNT(DISTINCT r.review_id) as count 
+            FROM review r
+            JOIN internship_posts ip ON r.company_id = ip.company_id
+            WHERE 1=1
+        `;
+        reviewSql += buildPositionFilter('ip', 'internship_title', reviewParams);
+    }
+    const [reviews] = await db.query(reviewSql, reviewParams);
+    
+    // 4. Total Interns (Filtered by Position if provided)
+    let internsSql = "SELECT COUNT(DISTINCT student_id) as count FROM internship_of_student WHERE end_date IS NULL";
+    let internsParams = [];
+    if (isFiltered) {
+        internsSql = `
+            SELECT COUNT(DISTINCT ios.student_id) as count 
+            FROM internship_of_student ios
+            JOIN internship_posts ip ON ios.company_id = ip.company_id
+            WHERE ios.end_date IS NULL
+        `;
+        internsSql += buildPositionFilter('ip', 'internship_title', internsParams);
+    }
+    const [interns] = await db.query(internsSql, internsParams);
 
-    // Bar Chart Data (Posts per company)
-    const [barData] = await db.query(`
-        SELECT c.company_name as name, COUNT(*) as value 
-        FROM internship_posts ip 
-        JOIN company c ON ip.company_id = c.company_id 
-        GROUP BY c.company_id 
-        LIMIT 10
-    `);
+    // 5. Position Distribution
+    let posDistSql = `
+        SELECT p.position_name as name, COUNT(ip.internship_posts_id) as value 
+        FROM position p
+        LEFT JOIN internship_posts ip ON ip.internship_title LIKE CONCAT('%', p.position_name, '%')
+        WHERE 1=1
+    `;
+    let posDistParams = [];
+    if (startDate && endDate) {
+        posDistSql += " AND ip.internship_create_date BETWEEN ? AND ?";
+        posDistParams.push(startDate, endDate);
+    }
+    if (isFiltered) {
+        const placeholders = positions.map(() => '?').join(',');
+        posDistSql += ` AND p.position_name IN (${placeholders})`;
+        posDistParams.push(...positions);
+    }
+    posDistSql += " GROUP BY p.position_name HAVING value > 0";
+    const [posDist] = await db.query(posDistSql, posDistParams);
+
+    // 6. Bar Chart Data (Posts per company - Filtered by Position)
+    let barSql = `
+        SELECT c.company_name as name, COUNT(ip.internship_posts_id) as value 
+        FROM company c
+        LEFT JOIN internship_posts ip ON c.company_id = ip.company_id 
+        WHERE 1=1
+    `;
+    let barParams = [];
+    if (startDate && endDate) {
+        barSql += " AND ip.internship_create_date BETWEEN ? AND ?";
+        barParams.push(startDate, endDate);
+    }
+    barSql += buildPositionFilter('ip', 'internship_title', barParams);
+    barSql += " GROUP BY c.company_id HAVING value > 0 LIMIT 10";
+    const [barData] = await db.query(barSql, barParams);
 
     res.json({
       openPosts,
       closedPosts,
-      totalCompanies: companies[0].count,
-      totalReviews: reviews[0].count,
-      totalInterns: interns[0].count,
-      positionDistribution: posDist,
-      barChartData: barData
+      totalCompanies: Number(companies[0]?.count || 0),
+      totalReviews: Number(reviews[0]?.count || 0),
+      totalInterns: Number(interns[0]?.count || 0),
+      positionDistribution: posDist || [],
+      barChartData: barData || []
     });
   } catch (err) {
     console.error(err);
@@ -595,6 +815,128 @@ app.get("/api/dashboard/filters", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
+// POSITIONS MANAGEMENT (ADMIN)
+// ==================================================
+app.get("/api/admin/positions", async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT * FROM position ORDER BY position_id DESC");
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  }
+});
+
+app.get("/api/admin/positions/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [posRows] = await db.query("SELECT * FROM position WHERE position_id = ?", [id]);
+    if (posRows.length === 0) return res.status(404).json({ message: "Position not found" });
+
+    const [qRows] = await db.query("SELECT * FROM quiz_question WHERE position_id = ?", [id]);
+    res.json({
+      ...posRows[0],
+      questions: qRows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  }
+});
+
+app.post("/api/admin/positions", async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { position_name, position_description, position_skill, questions } = req.body;
+
+    const [result] = await connection.query(
+      "INSERT INTO position (position_name, position_description, position_skill) VALUES (?, ?, ?)",
+      [position_name, position_description, position_skill]
+    );
+    const position_id = result.insertId;
+
+    if (Array.isArray(questions) && questions.length > 0) {
+      for (const q of questions) {
+        await connection.query(
+          "INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)",
+          [q, position_id]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ message: "Position created", position_id });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  } finally {
+    connection.release();
+  }
+});
+
+app.put("/api/admin/positions/:id", async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { id } = req.params;
+    const { position_name, position_description, position_skill, questions } = req.body;
+
+    await connection.query(
+      "UPDATE position SET position_name = ?, position_description = ?, position_skill = ? WHERE position_id = ?",
+      [position_name, position_description, position_skill, id]
+    );
+
+    // Delete old questions and insert new ones (simpler than update)
+    await connection.query("DELETE FROM quiz_question WHERE position_id = ?", [id]);
+
+    if (Array.isArray(questions) && questions.length > 0) {
+      for (const q of questions) {
+        await connection.query(
+          "INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)",
+          [q, id]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ message: "Position updated" });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: "Database error" });
+  } finally {
+    connection.release();
+  }
+});
+
+app.delete("/api/admin/positions/:id", async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { id } = req.params;
+
+    // Delete associated quiz questions first
+    await connection.query("DELETE FROM quiz_question WHERE position_id = ?", [id]);
+    
+    // Delete from quiz_result and career_fit_quiz might be needed if there are foreign keys
+    // but usually we might want to keep historical results or restrict deletion
+    // For now, let's assume cascade or simple delete
+    await connection.query("DELETE FROM position WHERE position_id = ?", [id]);
+
+    await connection.commit();
+    res.json({ message: "Position deleted" });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: "Database error (Ensure no active quiz results depend on this position)" });
+  } finally {
+    connection.release();
   }
 });
 
@@ -620,7 +962,8 @@ app.get("/api/posts", async (req, res) => {
         i.internship_status,
         i.mou,
         c.company_id,
-        c.company_name
+        c.company_name,
+        c.company_logo
       FROM internship_posts i
       JOIN company c ON i.company_id = c.company_id
     `;
@@ -657,7 +1000,8 @@ app.get("/api/posts/:id", async (req, res) => {
         i.internship_status,
         i.mou,
         i.internship_expired_date,
-        c.company_name
+        c.company_name,
+        c.company_logo
       FROM internship_posts i
       JOIN company c ON i.company_id = c.company_id
       WHERE i.internship_posts_id = ?
@@ -751,10 +1095,8 @@ app.get("/api/reviews/company/:id", async (req, res) => {
         r.review_comment AS comment,
         r.review_date AS created_at
       FROM review r
-      LEFT JOIN internship_of_student ios
-        ON r.student_internship_id = ios.student_internship_id
       LEFT JOIN student s 
-        ON ios.student_id = s.student_id
+        ON r.student_id = s.student_id
       WHERE r.company_id = ?
       ORDER BY r.review_date DESC
     `;
@@ -789,16 +1131,16 @@ app.post("/api/reviews", async (req, res) => {
     company_id = Number(company_id);
     student_id = Number(student_id);
 
+    // ตรวจสอบว่ามีคอลัมน์ student_internship_id หรือไม่จาก schema ที่เรา probe มาคือไม่มี
     const sql = `
       INSERT INTO review 
-      (company_id, student_id, student_internship_id, review_sum_rating, review_work_rating, review_life_rating, review_commu_rating, review_comment, review_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      (company_id, student_id, review_sum_rating, review_work_rating, review_life_rating, review_commu_rating, review_comment, review_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
     `;
 
     const [result] = await db.query(sql, [
       company_id,
       student_id,
-      null, // student_internship_id เป็น NULL ได้หากไม่ได้ผูกกับการฝึกงานเฉพาะครั้ง
       review_sum_rating,
       review_work_rating,
       review_life_rating,
@@ -812,7 +1154,7 @@ app.post("/api/reviews", async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ CREATE REVIEW ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });

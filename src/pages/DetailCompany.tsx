@@ -32,6 +32,12 @@ interface JobData {
 
 export default function DetailCompany() {
   const { id } = useParams();
+  const toLogoUrl = (value: string) => {
+    if (!value || value === "-") return "";
+    return value.startsWith("http://") || value.startsWith("https://")
+      ? value
+      : `http://localhost:5000${value}`;
+  };
   const [showDefinitions, setShowDefinitions] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -130,8 +136,8 @@ export default function DetailCompany() {
         <div className="mb-4 border-b border-gray-100 pb-4">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-12 bg-blue-900 rounded-full flex items-center justify-center text-white overflow-hidden flex-shrink-0">
-              {company.company_logo && company.company_logo !== "-" ? (
-                <img src={`/logos/${company.company_logo}`} alt={company.company_name} className="w-full h-full object-cover" />
+              {toLogoUrl(company.company_logo) ? (
+                <img src={toLogoUrl(company.company_logo)} alt={company.company_name} className="w-full h-full object-cover" />
               ) : (
                 <Globe size={24} />
               )}

@@ -1,8 +1,8 @@
 import AdminLayout from '../components/AdminLayout';
 import { 
-  Calendar
+  Calendar, Check, ChevronDown, X
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
@@ -27,9 +27,10 @@ const COLORS = [
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [positionFilter, setPositionFilter] = useState('all');
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [positionOptions, setPositionOptions] = useState<string[]>([]);
-
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Set default date range to current month
   const today = new Date();
@@ -40,14 +41,30 @@ export default function AdminDashboard() {
   const [endDate, setEndDate] = useState(lastDay);
 
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         const params: any = { startDate, endDate };
-        if (positionFilter !== 'all') params.position = positionFilter;
+        if (selectedPositions.length > 0) {
+          params.position = selectedPositions;
+        }
 
         const response = await axios.get(`http://localhost:5000/api/dashboard/summary`, {
-          params
+          params,
+          // Handle array parameters correctly in axios
+          paramsSerializer: {
+            indexes: null 
+          }
         });
         setData(response.data);
       } catch (error) {
@@ -58,7 +75,17 @@ export default function AdminDashboard() {
     };
 
     fetchDashboardData();
-  }, [startDate, endDate, positionFilter]);
+  }, [startDate, endDate, selectedPositions]);
+
+  const togglePosition = (position: string) => {
+    setSelectedPositions(prev => 
+      prev.includes(position) 
+        ? prev.filter(p => p !== position) 
+        : [...prev, position]
+    );
+  };
+
+  const clearPositions = () => setSelectedPositions([]);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -115,20 +142,65 @@ export default function AdminDashboard() {
             />
           </div>
 
-          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-md px-4 py-2 text-sm text-gray-600 shadow-sm">
-            <label htmlFor="position-filter" className="font-medium text-gray-600">ตำแหน่ง</label>
-            <select
-              id="position-filter"
-              value={positionFilter}
-              onChange={(e) => setPositionFilter(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          {/* Multiple Select Position Filter */}
+          <div className="relative" ref={dropdownRef}>
+            <div 
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-3 bg-white border border-gray-200 rounded-md px-4 py-2 text-sm text-gray-600 shadow-sm cursor-pointer hover:bg-gray-50 min-w-[200px] justify-between"
             >
-              <option value="all">ทั้งหมด</option>
-              {positionOptions.map((position) => (
-                <option key={position} value={position}>{position}</option>
-              ))}
-            </select>
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="font-medium text-gray-600 whitespace-nowrap">ตำแหน่ง:</span>
+                <span className="truncate">
+                  {selectedPositions.length === 0 
+                    ? 'ทั้งหมด' 
+                    : selectedPositions.length === 1 
+                      ? selectedPositions[0] 
+                      : `${selectedPositions.length} ตำแหน่ง`}
+                </span>
+              </div>
+              <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {isDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div 
+                  onClick={clearPositions}
+                  className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 flex items-center justify-between"
+                >
+                  <span className={selectedPositions.length === 0 ? 'font-bold text-blue-600' : ''}>ทั้งหมด</span>
+                  {selectedPositions.length === 0 && <Check size={14} className="text-blue-600" />}
+                </div>
+                {positionOptions.map((position) => (
+                  <div 
+                    key={position}
+                    onClick={() => togglePosition(position)}
+                    className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                  >
+                    <span className={selectedPositions.includes(position) ? 'font-bold text-blue-600' : ''}>{position}</span>
+                    {selectedPositions.includes(position) && <Check size={14} className="text-blue-600" />}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Selected Badges */}
+          {selectedPositions.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              {selectedPositions.map(pos => (
+                <span key={pos} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-100">
+                  {pos}
+                  <X size={12} className="cursor-pointer" onClick={() => togglePosition(pos)} />
+                </span>
+              ))}
+              <button 
+                onClick={clearPositions}
+                className="text-xs text-gray-400 hover:text-gray-600 underline"
+              >
+                ล้างทั้งหมด
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stat Cards */}

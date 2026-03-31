@@ -63,8 +63,15 @@ export default function AdminCompanyForm() {
     try {
       const userStr = localStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
-      const account_id = user?.id;
-      await axios.post('http://localhost:5000/api/companies', { ...form, account_id });
+      
+      // ส่งทั้ง admin_id และ account_id เพื่อความชัวร์
+      const payload = { 
+        ...form, 
+        admin_id: user?.admin_id,
+        account_id: user?.account_id || user?.id 
+      };
+      
+      await axios.post('http://localhost:5000/api/companies', payload);
       alert('บันทึกข้อมูลบริษัทสำเร็จ');
       navigate('/admin/companies');
     } catch (e) {
