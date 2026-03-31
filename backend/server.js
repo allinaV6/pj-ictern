@@ -100,7 +100,7 @@ app.get("/api/posts", async (req, res) => {
         c.company_id,
         c.company_name,
 
-        -- 🔥 เพิ่ม 2 ตัวนี้กลับมา
+        -- 🔥 ตัวนี้แหละสำคัญ
         ROUND(AVG(r.review_sum_rating),1) AS rating,
         COUNT(r.review_id) AS review_count
 
