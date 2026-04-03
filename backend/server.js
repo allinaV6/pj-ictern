@@ -682,6 +682,44 @@ app.post("/api/uploads/logo", async (req, res) => {
 });
 
 // ==================================================
+// UPLOAD POSTER (Base64)
+// ==================================================
+app.post("/api/uploads/poster", async (req, res) => {
+  try {
+    const { filename, data } = req.body;
+    if (!filename || !data) {
+      return res.status(400).json({ message: "Invalid upload data" });
+    }
+
+    const uploadsDir = path.join(__dirname, "uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir);
+    }
+
+    const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ message: "Invalid base64 string" });
+    }
+
+    const buffer = Buffer.from(matches[2], "base64");
+    const ext = path.extname(filename) || ".png";
+    const newFilename = `poster_${Date.now()}${ext}`;
+    const filePath = path.join(uploadsDir, newFilename);
+
+    fs.writeFileSync(filePath, buffer);
+
+    res.json({
+      url: `/uploads/${newFilename}`,
+      message: "Upload successful"
+    });
+
+  } catch (err) {
+    console.error("❌ Upload error:", err);
+    res.status(500).json({ message: "Upload failed" });
+  }
+});
+
+// ==================================================
 // DASHBOARD
 // ==================================================
 app.get("/api/dashboard/summary", async (req, res) => {
@@ -760,7 +798,7 @@ app.get("/api/dashboard/summary", async (req, res) => {
     // 5. Position Distribution
     let posDistSql = `
         SELECT p.position_name as name, COUNT(ip.internship_posts_id) as value 
-        FROM position p
+        FROM \`position\` p
         LEFT JOIN internship_posts ip ON ip.internship_title LIKE CONCAT('%', p.position_name, '%')
         WHERE 1=1
     `;
@@ -810,7 +848,7 @@ app.get("/api/dashboard/summary", async (req, res) => {
 
 app.get("/api/dashboard/filters", async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT position_name FROM position");
+    const [rows] = await db.query("SELECT position_name FROM `position`");
     res.json({ positionOptions: rows.map(r => r.position_name) });
   } catch (err) {
     console.error(err);
@@ -823,7 +861,7 @@ app.get("/api/dashboard/filters", async (req, res) => {
 // ==================================================
 app.get("/api/admin/positions", async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM position ORDER BY position_id DESC");
+    const [rows] = await db.query("SELECT * FROM `position` ORDER BY position_id DESC");
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -834,7 +872,7 @@ app.get("/api/admin/positions", async (req, res) => {
 app.get("/api/admin/positions/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const [posRows] = await db.query("SELECT * FROM position WHERE position_id = ?", [id]);
+    const [posRows] = await db.query("SELECT * FROM `position` WHERE position_id = ?", [id]);
     if (posRows.length === 0) return res.status(404).json({ message: "Position not found" });
 
     const [qRows] = await db.query("SELECT * FROM quiz_question WHERE position_id = ?", [id]);
@@ -854,8 +892,19 @@ app.post("/api/admin/positions", async (req, res) => {
     await connection.beginTransaction();
     const { position_name, position_description, position_skill, questions } = req.body;
 
+    // 🔥 Check duplicate position name
+    const [existing] = await connection.query(
+      "SELECT position_id FROM `position` WHERE position_name = ?",
+      [position_name]
+    );
+
+    if (existing.length > 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: "ตำแหน่งงานนี้มีในระบบแล้ว" });
+    }
+
     const [result] = await connection.query(
-      "INSERT INTO position (position_name, position_description, position_skill) VALUES (?, ?, ?)",
+      "INSERT INTO `position` (position_name, position_description, position_skill) VALUES (?, ?, ?)",
       [position_name, position_description, position_skill]
     );
     const position_id = result.insertId;
@@ -888,7 +937,7 @@ app.put("/api/admin/positions/:id", async (req, res) => {
     const { position_name, position_description, position_skill, questions } = req.body;
 
     await connection.query(
-      "UPDATE position SET position_name = ?, position_description = ?, position_skill = ? WHERE position_id = ?",
+      "UPDATE `position` SET position_name = ?, position_description = ?, position_skill = ? WHERE position_id = ?",
       [position_name, position_description, position_skill, id]
     );
 
@@ -927,7 +976,7 @@ app.delete("/api/admin/positions/:id", async (req, res) => {
     // Delete from quiz_result and career_fit_quiz might be needed if there are foreign keys
     // but usually we might want to keep historical results or restrict deletion
     // For now, let's assume cascade or simple delete
-    await connection.query("DELETE FROM position WHERE position_id = ?", [id]);
+    await connection.query("DELETE FROM `position` WHERE position_id = ?", [id]);
 
     await connection.commit();
     res.json({ message: "Position deleted" });
@@ -945,6 +994,9 @@ app.delete("/api/admin/positions/:id", async (req, res) => {
 // ==================================================
 app.get("/api/posts", async (req, res) => {
   try {
+    // 🔥 Auto-update expired posts before fetching
+    await updateExpiredPosts();
+
     const sql = `
       SELECT 
         i.internship_posts_id AS post_id,
@@ -957,6 +1009,8 @@ app.get("/api/posts", async (req, res) => {
         i.internship_compensation,
         i.internship_working_method,
         i.internship_link,
+        i.internship_apply_type,
+        i.internship_poster,
         i.internship_create_date,
         i.internship_expired_date,
         i.internship_status,
@@ -1005,6 +1059,8 @@ app.get("/api/posts/:id", async (req, res) => {
         i.internship_compensation,
         i.internship_working_method,
         i.internship_link,
+        i.internship_apply_type,
+        i.internship_poster,
         i.internship_status,
         i.mou,
         i.internship_expired_date,
@@ -1103,6 +1159,8 @@ app.get('/api/posts/detail/:id', async (req, res) => {
         i.internship_compensation,
         i.internship_working_method,
         i.internship_link,
+        i.internship_apply_type,
+        i.internship_poster,
         i.internship_expired_date,
 
         c.company_id,
@@ -1252,7 +1310,7 @@ app.get('/api/questions', async (req, res) => {
 // ==================================================
 app.get('/api/positions', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM position');
+    const [rows] = await db.query('SELECT * FROM `position`');
 
     const formatted = rows.map(p => ({
       id: p.position_name,
@@ -1389,7 +1447,7 @@ app.get("/api/positions/by-ids", async (req, res) => {
 
     const idList = ids.split(",").map(Number);
     const [rows] = await db.query(
-      "SELECT * FROM position WHERE position_id IN (?)",
+      "SELECT * FROM `position` WHERE position_id IN (?)",
       [idList]
     );
 
@@ -1444,6 +1502,139 @@ app.delete("/api/favorites", async (req, res) => {
     res.status(500).json({ error: "server error" });
   }
 });
+
+// ==================================================
+// CREATE/UPDATE/DELETE POSTS (ADMIN)
+// ==================================================
+app.post("/api/posts", async (req, res) => {
+  try {
+    const {
+      internship_title,
+      company_id,
+      internship_working_method,
+      internship_duration,
+      internship_location,
+      internship_compensation,
+      internship_description,
+      internship_responsibilities,
+      internship_requirements,
+      internship_expired_date,
+      internship_link,
+      internship_apply_type,
+      internship_poster,
+      internship_status,
+      mou,
+      account_id
+    } = req.body;
+
+    let finalAdminId = null;
+    if (account_id) {
+      const [adminRows] = await db.query("SELECT admin_id FROM admin WHERE account_id = ?", [account_id]);
+      if (adminRows.length > 0) {
+        finalAdminId = adminRows[0].admin_id;
+      }
+    }
+
+    if (!finalAdminId) {
+      const [allAdmins] = await db.query("SELECT admin_id FROM admin LIMIT 1");
+      if (allAdmins.length > 0) {
+        finalAdminId = allAdmins[0].admin_id;
+      }
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO internship_posts (
+        internship_title, company_id, internship_working_method, 
+        internship_duration, internship_location, internship_compensation, 
+        internship_description, internship_responsibilities, 
+        internship_requirements, internship_expired_date, 
+        internship_link, internship_apply_type, internship_poster, internship_status, mou, admin_id, internship_create_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        internship_title, company_id, internship_working_method,
+        internship_duration, internship_location, internship_compensation,
+        internship_description, internship_responsibilities,
+        internship_requirements, internship_expired_date || null,
+        internship_link, internship_apply_type || 'link', internship_poster || null, internship_status ?? 1, mou ?? 0, finalAdminId
+      ]
+    );
+
+    res.json({ message: "Post created", post_id: result.insertId });
+
+    // 🔥 Auto-update expired posts after creation
+    await updateExpiredPosts();
+  } catch (err) {
+    console.error("❌ CREATE POST ERROR:", err);
+    res.status(500).json({ message: "Database error", error: err.message });
+  }
+});
+
+app.put("/api/posts/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      internship_title,
+      company_id,
+      internship_working_method,
+      internship_duration,
+      internship_location,
+      internship_compensation,
+      internship_description,
+      internship_responsibilities,
+      internship_requirements,
+      internship_expired_date,
+      internship_link,
+      internship_apply_type,
+      internship_poster,
+      internship_status,
+      mou
+    } = req.body;
+
+    await db.query(
+      `UPDATE internship_posts SET 
+        internship_title = ?, company_id = ?, internship_working_method = ?, 
+        internship_duration = ?, internship_location = ?, internship_compensation = ?, 
+        internship_description = ?, internship_responsibilities = ?, 
+        internship_requirements = ?, internship_expired_date = ?, 
+        internship_link = ?, internship_apply_type = ?, internship_poster = ?, internship_status = ?, mou = ? 
+      WHERE internship_posts_id = ?`,
+      [
+        internship_title, company_id, internship_working_method,
+        internship_duration, internship_location, internship_compensation,
+        internship_description, internship_responsibilities,
+        internship_requirements, internship_expired_date || null,
+        internship_link, internship_apply_type || 'link', internship_poster || null, internship_status, mou, id
+      ]
+    );
+
+    res.json({ message: "Post updated" });
+
+    // 🔥 Auto-update expired posts after update
+    await updateExpiredPosts();
+  } catch (err) {
+    console.error("❌ UPDATE POST ERROR:", err);
+    res.status(500).json({ message: "Database error", error: err.message });
+  }
+});
+
+app.delete("/api/posts/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query("DELETE FROM internship_posts WHERE internship_posts_id = ?", [id]);
+    res.json({ message: "Post deleted" });
+  } catch (err) {
+    console.error("❌ DELETE POST ERROR:", err);
+    res.status(500).json({ message: "Delete failed" });
+  }
+});
+
+const updateExpiredPosts = require('./updateExpiredPosts');
+
+// Run the update function once on startup
+updateExpiredPosts();
+
+// Schedule the update function to run daily (e.g., every 24 hours)
+setInterval(updateExpiredPosts, 24 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);

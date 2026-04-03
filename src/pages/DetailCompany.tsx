@@ -26,9 +26,22 @@ interface JobData {
   internship_responsibilities: string;
   internship_requirements: string;
   internship_working_method: string;
+  internship_create_date: string;
   internship_expired_date: string;
   internship_status?: number;
 }
+
+const renderCompensation = (value: string | number | undefined | null): string => {
+  if (!value || value === '' || value === 'N/A') return 'N/A';
+  const str = String(value);
+  const numPart = str.replace(/[^0-9.]/g, '');
+  const num = parseFloat(numPart);
+  if (isNaN(num)) return 'N/A';
+  
+  const formattedNum = num.toLocaleString('th-TH');
+  const unit = str.includes('ต่อวัน') ? 'บาท/วัน' : 'บาท/เดือน';
+  return `฿ ${formattedNum} ${unit}`;
+};
 
 export default function DetailCompany() {
   const { id } = useParams();
@@ -208,11 +221,18 @@ export default function DetailCompany() {
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 flex items-center gap-2">
-                      <span>ค่าตอบแทน: {job.internship_compensation || 'N/A'}</span>
+                      <div className="flex items-center gap-1">
+                        <span>ค่าตอบแทน:</span>
+                        <span className="text-green-600 font-bold ml-1">
+                          {renderCompensation(job.internship_compensation)}
+                        </span>
+                      </div>
+                      <span className="text-gray-300 ml-1">|</span>
+                      <span>ระยะเวลา: {job.internship_duration} เดือน</span>
                       <span className="text-gray-300">|</span>
-                      <span>ระยะเวลา: {job.internship_duration} เดือนขึ้นไป</span>
+                      <span>ประกาศเมื่อ: {new Date(job.internship_create_date).toLocaleDateString('th-TH')}</span>
                       <span className="text-gray-300">|</span>
-                      <span>ประกาศเมื่อ: 28/10/2025</span>
+                      <span className="text-red-600 font-medium">ปิดรับสมัคร: {new Date(job.internship_expired_date).toLocaleDateString('th-TH')}</span>
                     </div>
                   </div>
                   <button
@@ -378,7 +398,9 @@ export default function DetailCompany() {
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                   <Clock size={16} />
-                  ฿ {selectedJob.internship_compensation}
+                  <span className="text-green-600 font-bold">
+                    {renderCompensation(selectedJob.internship_compensation)}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                   <Calendar size={16} />

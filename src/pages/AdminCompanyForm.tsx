@@ -82,27 +82,29 @@ export default function AdminCompanyForm() {
 
   return (
     <AdminLayout>
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
-            <h1 className="text-lg font-bold text-gray-800">เพิ่มบริษัท</h1>
-            <div className="flex items-center gap-3">
-              <button
-                className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-50"
-                onClick={() => navigate('/admin/companies')}
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-7 py-2.5 rounded-lg bg-blue-900 text-white font-semibold text-base hover:bg-blue-800"
-              >
-                บันทึก
-              </button>
-            </div>
+      <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <h1 className="text-4xl font-bold">เพิ่มบริษัท</h1>
+          <div className="flex gap-3">
+            <button
+              className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
+              onClick={() => navigate('/admin/companies')}
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 transition-colors"
+            >
+              บันทึก
+            </button>
           </div>
+        </div>
+      </div>
 
-          <div className="p-6">
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-[1.2fr,2fr] gap-8 mb-8">
             <div className="space-y-4">
               <p className="text-sm font-semibold text-gray-700 mb-1">

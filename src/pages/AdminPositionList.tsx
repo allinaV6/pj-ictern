@@ -58,11 +58,11 @@ export default function AdminPositionList() {
 
   return (
     <AdminLayout>
-      <div className="bg-blue-900 text-white px-4 py-8">
+      <div className="bg-blue-900 text-white px-4 py-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Position Management</h1>
+          <h1 className="text-4xl font-bold">Position Management</h1>
           <button
-            className="flex items-center gap-2 bg-white text-blue-900 px-6 py-2.5 rounded-lg font-semibold text-base hover:bg-gray-100"
+            className="flex items-center gap-2 bg-white text-blue-900 px-6 py-2.5 rounded-lg font-semibold text-base hover:bg-gray-100 transition-colors shadow-sm"
             onClick={() => navigate('/admin/positions/new')}
           >
             <Plus size={18} />
@@ -133,7 +133,7 @@ export default function AdminPositionList() {
               </div>
             ))
           ) : (
-            <div className="flex items-center justify-center py-20 text-gray-400 italic">ไม่พบข้อมูลตำแหน่งงาน</div>
+            <div className="flex items-center justify-center py-20 text-gray-400 italic">ไม่พบข้อมูล</div>
           )}
         </div>
 

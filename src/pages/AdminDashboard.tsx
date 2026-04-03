@@ -32,13 +32,8 @@ export default function AdminDashboard() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Set default date range to current month
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = today.toISOString().split('T')[0];
-
-  const [startDate, setStartDate] = useState(firstDay);
-  const [endDate, setEndDate] = useState(lastDay);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -114,32 +109,57 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      {/* Blue Header Banner */}
-      <div className="bg-blue-900 text-white px-4 py-8">
-        <div className="max-w-6xl mx-auto pl-6">
-          <h1 className="text-2xl md:text-3xl font-bold mb-1">ภาพรวมและข้อมูลล่าสุด</h1>
-          <p className="text-blue-200 text-sm">ดูสถิติและข้อมูลสรุปสำคัญของระบบทั้งหมด</p>
+      <div className="bg-blue-900 text-white px-4 py-10">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-4xl font-bold">ภาพรวมและข้อมูลล่าสุด</h1>
+          <p className="text-lg text-blue-100 mt-2">ดูสถิติและข้อมูลสรุปสำคัญของระบบทั้งหมด</p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Filter Controls */}
         <div className="flex flex-wrap gap-4 mb-8 ml-2">
-          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-md px-4 py-2 text-sm text-gray-600 shadow-sm">
+          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-md px-4 py-2 text-sm text-gray-600 shadow-sm min-w-[320px]">
             <Calendar size={18} className="text-blue-600" />
-            <input 
-              type="date" 
-              value={startDate} 
-              onChange={(e) => setStartDate(e.target.value)}
-              className="outline-none focus:text-blue-600"
-            />
-            <span className="text-gray-400"> - </span>
-            <input 
-              type="date" 
-              value={endDate} 
-              onChange={(e) => setEndDate(e.target.value)}
-              className="outline-none focus:text-blue-600"
-            />
+            <div className="flex items-center gap-2 flex-grow justify-center">
+              {!startDate && !endDate ? (
+                <div 
+                  className="cursor-pointer text-gray-400 font-medium hover:text-blue-600 w-full text-center transition-colors"
+                  onClick={() => {
+                    const today = new Date();
+                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+                    const lastDay = today.toISOString().split('T')[0];
+                    setStartDate(firstDay);
+                    setEndDate(lastDay);
+                  }}
+                >
+                  <span>เลือกช่วงวันที่</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    value={startDate} 
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="outline-none focus:text-blue-600 bg-transparent"
+                  />
+                  <span className="text-gray-400 font-bold"> - </span>
+                  <input 
+                    type="date" 
+                    value={endDate} 
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="outline-none focus:text-blue-600 bg-transparent"
+                  />
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setStartDate(''); setEndDate(''); }}
+                    className="ml-2 p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-all"
+                    title="ล้างตัวกรองวันที่"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Multiple Select Position Filter */}

@@ -140,6 +140,17 @@ export default function AdminCompanyList() {
   const onCompanyFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Check file extension
+    const allowedExtensions = ['xlsx', 'xls', 'csv'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      alert('ไฟล์ไม่ถูกต้อง');
+      e.target.value = '';
+      return;
+    }
+
     await handleImportCompanies(file);
     e.target.value = '';
   };

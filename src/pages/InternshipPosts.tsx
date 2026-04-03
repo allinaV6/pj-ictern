@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
-import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle } from "lucide-react";
+import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface InternshipPostType {
@@ -18,10 +18,25 @@ interface InternshipPostType {
   internship_compensation: string;
   internship_working_method: string;
   internship_link?: string;
+  internship_apply_type?: string;
+  internship_poster?: string;
+  internship_create_date?: string;
   internship_expired_date: string;
   rating?: number;
   review_count?: number;
 }
+
+const renderCompensation = (value: string | number | undefined | null): string => {
+  if (!value || value === '' || value === 'N/A') return 'N/A';
+  const str = String(value);
+  const numPart = str.replace(/[^0-9.]/g, '');
+  const num = parseFloat(numPart);
+  if (isNaN(num)) return 'N/A';
+  
+  const formattedNum = num.toLocaleString('th-TH');
+  const unit = str.includes('ต่อวัน') ? 'บาท/วัน' : 'บาท/เดือน';
+  return `฿ ${formattedNum} ${unit}`;
+};
 
 function InternshipPosts() {
   const [posts, setPosts] = useState<InternshipPostType[]>([]);
@@ -33,6 +48,10 @@ function InternshipPosts() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedPost, setSelectedPost] = useState<InternshipPostType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPosterModalOpen, setIsPosterModalOpen] = useState(false);
+  const [selectedPoster, setSelectedPoster] = useState<string>("");
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState<string>("");
   const navigate = useNavigate();
   const [sortType, setSortType] = useState("");
 
@@ -226,7 +245,7 @@ function InternshipPosts() {
         {error && <p className="text-center py-10 text-red-500">{error}</p>}
 
         {!loading && !error && filteredPosts.length === 0 && (
-          <p className="text-center py-10 text-gray-500">ไม่พบข้อมูลที่ตรงกับการค้นหา</p>
+          <p className="text-center py-10 text-gray-500">ไม่พบข้อมูล</p>
         )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -295,22 +314,34 @@ function InternshipPosts() {
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <Clock size={16} className="text-gray-400" />
-                    ฝึกงาน {post.internship_duration} เดือนขึ้นไป
+                    ฝึกงาน {post.internship_duration} เดือน
                   </div>
-                  <div className="flex items-center gap-2 text-[13px] text-green-600 font-semibold">
-                    ฿ {post.internship_compensation}
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 font-bold text-[14px]">
+                      {renderCompensation(post.internship_compensation)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-500">
                     <Calendar size={16} className="text-gray-400" />
-                    ประกาศเมื่อ: {post.internship_expired_date}
+                    วันที่ปิดรับสมัคร: {new Date(post.internship_expired_date).toLocaleDateString('th-TH')}
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <FileText size={16} className="text-gray-400" />
                     {post.internship_working_method}
                   </div>
-                  <button className="text-[15px] text-gray-800 font-bold underline text-left flex items-center gap-1">
+                  <button 
+                    onClick={() => {
+                      if (post.internship_poster) {
+                        setSelectedPoster(post.internship_poster);
+                        setIsPosterModalOpen(true);
+                      } else {
+                        alert("ยังไม่มีรูปโปสเตอร์สำหรับโพสต์นี้");
+                      }
+                    }}
+                    className="text-[15px] text-gray-800 font-bold underline text-left flex items-center gap-1 hover:text-blue-700 transition-colors"
+                  >
                     <FileText size={14} />
-                    รายละเอียดเพิ่มเติม
+                    แสดงโปสเตอร์
                   </button>
                 </div>
 
@@ -383,12 +414,26 @@ function InternshipPosts() {
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <Clock size={16} />
-                        {selectedPost.internship_compensation}
+                        <span className="text-green-600 font-bold">
+                          {renderCompensation(selectedPost.internship_compensation)}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <Calendar size={16} />
                         ประกาศเมื่อ: {selectedPost.internship_expired_date}
                       </div>
+                      {selectedPost.internship_poster && (
+                        <button 
+                          onClick={() => {
+                            setSelectedPoster(selectedPost.internship_poster!);
+                            setIsPosterModalOpen(true);
+                          }}
+                          className="flex items-center gap-1.5 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 font-bold hover:bg-blue-100 transition-colors"
+                        >
+                          <FileText size={16} />
+                          ดูโปสเตอร์ประชาสัมพันธ์
+                        </button>
+                      )}
                     </div>
                   </>
                 );
@@ -450,9 +495,90 @@ function InternshipPosts() {
                 ดูรายละเอียดบริษัท
               </button>
               <button 
+                onClick={() => {
+                  const applyType = selectedPost.internship_apply_type;
+                  const applyLink = selectedPost.internship_link || '';
+                  
+                  // Check if it's explicitly 'email' OR looks like an email address
+                  if (applyType === 'email' || applyLink.includes('@')) {
+                    setSelectedEmail(applyLink);
+                    setIsEmailModalOpen(true);
+                  } else if (applyLink) {
+                    // Make sure link has protocol
+                    const finalLink = applyLink.startsWith('http') ? applyLink : `https://${applyLink}`;
+                    window.open(finalLink, '_blank');
+                  } else {
+                    alert('ไม่มีข้อมูลการสมัครงาน');
+                  }
+                }}
                 className="px-10 py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
               >
                 สมัครงาน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Poster Pop-up Modal */}
+      {isPosterModalOpen && selectedPoster && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsPosterModalOpen(false)}
+          ></div>
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white">
+            <button 
+              onClick={() => setIsPosterModalOpen(false)}
+              className="absolute right-4 top-4 text-white bg-black/50 hover:bg-black/70 z-10 p-2 rounded-full transition-all"
+            >
+              <X size={24} />
+            </button>
+            <div className="overflow-auto p-2">
+              <img 
+                src={selectedPoster.startsWith('/') ? `http://localhost:5000${selectedPoster}` : selectedPoster} 
+                alt="Internship Poster" 
+                className="max-w-full h-auto rounded-lg shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Application Modal */}
+      {isEmailModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsEmailModalOpen(false)}
+          ></div>
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 text-center">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">ติดต่อสมัครงาน</h3>
+            <p className="text-gray-600 mb-6">
+              กรุณาส่ง Resume หรือเอกสารประกอบการสมัครงานไปที่อีเมลด้านล่างนี้:
+            </p>
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-8 select-all cursor-pointer group hover:bg-gray-100 transition-colors">
+              <span className="text-blue-700 font-bold text-lg break-all">
+                {selectedEmail || 'ไม่ระบุอีเมล'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  window.location.href = `mailto:${selectedEmail}`;
+                }}
+                className="w-full py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
+              >
+                เปิดแอปอีเมล
+              </button>
+              <button 
+                onClick={() => setIsEmailModalOpen(false)}
+                className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                ปิดหน้าต่าง
               </button>
             </div>
           </div>

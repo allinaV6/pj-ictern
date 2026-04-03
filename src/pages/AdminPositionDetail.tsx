@@ -38,11 +38,7 @@ export default function AdminPositionDetail() {
     }
   };
 
-  const handleSkillChange = (index: number, value: string) => {
-    const skills = form.position_skill.split('\n');
-    skills[index] = value;
-    setForm({ ...form, position_skill: skills.join('\n') });
-  };
+
 
   const handleQuestionChange = (index: number, value: string) => {
     const newQuestions = [...form.questions];
@@ -84,19 +80,19 @@ export default function AdminPositionDetail() {
 
   return (
     <AdminLayout>
-      <div className="bg-blue-900 text-white px-4 py-8 mb-8">
+      <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">แก้ไขตำแหน่งงาน</h1>
+          <h1 className="text-4xl font-bold">รายละเอียดตำแหน่งงาน</h1>
           <div className="flex gap-3">
             <button
-              className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100"
+              className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
               onClick={() => navigate('/admin/positions')}
               disabled={saving}
             >
               ยกเลิก
             </button>
             <button 
-              className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 disabled:opacity-50"
+              className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 disabled:opacity-50 transition-colors"
               onClick={handleSave}
               disabled={saving}
             >
@@ -135,21 +131,14 @@ export default function AdminPositionDetail() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                แนวทางการพัฒนาทักษะ (ระบุเป็นข้อๆ) <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                แนวทางการพัฒนาทักษะ <span className="text-red-500">*</span>
               </label>
-              <div className="space-y-3">
-                {[0, 1, 2].map((index) => (
-                  <input
-                    key={index}
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={`${index + 1}.`}
-                    value={form.position_skill.split('\n')[index] || ''}
-                    onChange={(e) => handleSkillChange(index, e.target.value)}
-                  />
-                ))}
-              </div>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={form.position_skill}
+                onChange={(e) => setForm({ ...form, position_skill: e.target.value })}
+              />
             </div>
 
             <div>

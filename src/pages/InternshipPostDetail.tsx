@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { MapPin, Clock, Calendar, FileText, Building2 } from "lucide-react";
+import { MapPin, Clock, Calendar, FileText, Building2, Mail, X } from "lucide-react";
 
 interface InternshipPostType {
   post_id: number;
@@ -15,7 +15,10 @@ interface InternshipPostType {
   internship_requirements: string;
   internship_compensation: string;
   internship_working_method: string;
+  internship_create_date: string;
   internship_link?: string;
+  internship_apply_type?: string;
+  internship_poster?: string;
   internship_expired_date: string;
 
   // 🔥 เพิ่ม
@@ -23,12 +26,25 @@ interface InternshipPostType {
   review_count?: number;
 }
 
+const renderCompensation = (value: string | number | undefined | null): string => {
+  if (!value || value === '' || value === 'N/A') return 'N/A';
+  const str = String(value);
+  const numPart = str.replace(/[^0-9.]/g, '');
+  const num = parseFloat(numPart);
+  if (isNaN(num)) return 'N/A';
+  
+  const formattedNum = num.toLocaleString('th-TH');
+  const unit = str.includes('ต่อวัน') ? 'บาท/วัน' : 'บาท/เดือน';
+  return `฿ ${formattedNum} ${unit}`;
+};
+
 function InternshipPostDetail() {
 
   const { id } = useParams();
 
   const [post, setPost] = useState<InternshipPostType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -104,13 +120,20 @@ function InternshipPostDetail() {
               รูปแบบงาน: {post.internship_working_method}
             </div>
 
-            <div className="text-green-600 font-semibold">
-              ค่าตอบแทน: {post.internship_compensation} บาท/เดือน
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">ค่าตอบแทน:</span>
+              <span className="text-green-600 font-bold">
+                {renderCompensation(post.internship_compensation)}
+              </span>
             </div>
 
-            <div className="flex items-center gap-2 text-gray-500">
+            <div className="flex items-center gap-2">
               <Calendar size={16}/>
-              หมดเขต: {new Date(post.internship_expired_date).toLocaleDateString()}
+              ประกาศเมื่อ: {new Date(post.internship_create_date).toLocaleDateString('th-TH')}
+            </div>
+            <div className="flex items-center gap-2 text-red-600 font-medium">
+              <Calendar size={16}/>
+              ปิดรับสมัคร: {new Date(post.internship_expired_date).toLocaleDateString('th-TH')}
             </div>
 
           </div>
@@ -150,14 +173,21 @@ function InternshipPostDetail() {
             </Link>
 
             {post.internship_link && (
-              <a
-                href={post.internship_link}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={() => {
+                  const applyType = post.internship_apply_type;
+                  const applyLink = post.internship_link || '';
+                  if (applyType === 'email' || applyLink.includes('@')) {
+                    setIsEmailModalOpen(true);
+                  } else if (applyLink) {
+                    const finalLink = applyLink.startsWith('http') ? applyLink : `https://${applyLink}`;
+                    window.open(finalLink, '_blank');
+                  }
+                }}
                 className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
               >
                 สมัครฝึกงาน
-              </a>
+              </button>
             )}
 
           </div>
@@ -166,6 +196,45 @@ function InternshipPostDetail() {
 
       </div>
 
+      {/* Email Application Modal */}
+      {isEmailModalOpen && post && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsEmailModalOpen(false)}
+          ></div>
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 text-center">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">ติดต่อสมัครงาน</h3>
+            <p className="text-gray-600 mb-6">
+              กรุณาส่ง Resume หรือเอกสารประกอบการสมัครงานไปที่อีเมลด้านล่างนี้:
+            </p>
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-8 select-all cursor-pointer group hover:bg-gray-100 transition-colors">
+              <span className="text-blue-700 font-bold text-lg break-all">
+                {post.internship_link || 'ไม่ระบุอีเมล'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  window.location.href = `mailto:${post.internship_link}`;
+                }}
+                className="w-full py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
+              >
+                เปิดแอปอีเมล
+              </button>
+              <button 
+                onClick={() => setIsEmailModalOpen(false)}
+                className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

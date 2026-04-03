@@ -2,6 +2,7 @@ import AdminLayout from '../components/AdminLayout';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import { ChevronDown } from 'lucide-react';
 
 type CompanyApiItem = {
   company_id: number;
@@ -26,6 +27,8 @@ export default function AdminUserDetail() {
   const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState<CompanyApiItem[]>([]);
   const [userRole, setUserRole] = useState<string>('Student');
+  const [companySearch, setCompanySearch] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [form, setForm] = useState({
     student_id: '',
     username: '',
@@ -43,7 +46,14 @@ export default function AdminUserDetail() {
     ])
       .then(([userRes, companiesRes]) => {
         const u = userRes.data;
+        const comps = Array.isArray(companiesRes.data) ? companiesRes.data : [];
+        setCompanies(comps);
         setUserRole(u.role || 'Student');
+        
+        // Find company name for initial search value
+        const currentComp = comps.find(c => c.company_id === u.internship_company_id);
+        setCompanySearch(currentComp ? currentComp.company_name : '');
+
         setForm({
           student_id: u.student_id ? String(u.student_id) : '',
           username: u.username || '',
@@ -53,9 +63,6 @@ export default function AdminUserDetail() {
           internship_company_id: typeof u.internship_company_id === 'number' ? u.internship_company_id : '',
           account_status: typeof u.account_status === 'number' ? u.account_status : 1
         });
-        setCompanies(
-          Array.isArray(companiesRes.data) ? companiesRes.data : []
-        );
       })
       .catch((e) => {
         console.error(e);
@@ -102,6 +109,16 @@ export default function AdminUserDetail() {
     }
   };
 
+  const handleSelectCompany = (c: CompanyApiItem) => {
+    setForm({ ...form, internship_company_id: c.company_id });
+    setCompanySearch(c.company_name);
+    setShowSuggestions(false);
+  };
+
+  const filteredCompanies = companies.filter(c =>
+    c.company_name.toLowerCase().includes(companySearch.toLowerCase())
+  );
+
   const handleDelete = async () => {
     if (!confirm('ยืนยันการลบผู้ใช้นี้?')) return;
     try {
@@ -124,36 +141,36 @@ export default function AdminUserDetail() {
 
   return (
     <AdminLayout>
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-lg font-bold text-gray-800">รายละเอียดผู้ใช้</h1>
-              <div className="text-xs text-gray-400 mt-1">Account ID: {id}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-50"
-                onClick={() => navigate('/admin/users')}
-              >
-                ยกเลิก
-              </button>
-              <button
-                className="px-6 py-2.5 rounded-lg border border-red-200 bg-white text-red-600 font-semibold text-base hover:bg-red-50"
-                onClick={handleDelete}
-              >
-                ลบผู้ใช้
-              </button>
-              <button
-                className="px-7 py-2.5 rounded-lg bg-blue-900 text-white font-semibold text-base hover:bg-blue-800"
-                onClick={handleSave}
-              >
-                บันทึก
-              </button>
-            </div>
+      <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <h1 className="text-4xl font-bold">รายละเอียดผู้ใช้</h1>
+          <div className="flex gap-3">
+            <button
+              className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
+              onClick={() => navigate('/admin/users')}
+            >
+              ยกเลิก
+            </button>
+            <button
+              className="px-6 py-2.5 rounded-lg bg-red-600 border border-white text-white font-semibold text-base hover:bg-red-700 transition-colors"
+              onClick={handleDelete}
+            >
+              ลบผู้ใช้
+            </button>
+            <button
+              className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 transition-colors"
+              onClick={handleSave}
+            >
+              บันทึก
+            </button>
           </div>
+        </div>
+      </div>
 
-          <div className="p-6">
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <p className="text-sm text-gray-400 mb-4 font-mono">Account ID: {id}</p>
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <div>
@@ -177,25 +194,62 @@ export default function AdminUserDetail() {
                   />
                 </div>
 
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">สถานที่ฝึกงาน</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    value={form.internship_company_id === '' ? '' : String(form.internship_company_id)}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        internship_company_id: e.target.value ? parseInt(e.target.value) : ''
-                      })
-                    }
-                  >
-                    <option value="">ไม่ระบุ</option>
-                    {companies.map((c) => (
-                      <option key={c.company_id} value={c.company_id}>
-                        {c.company_name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                      placeholder="เลือกหรือค้นหาชื่อบริษัท"
+                      value={companySearch}
+                      onChange={(e) => {
+                        setCompanySearch(e.target.value);
+                        setForm({ ...form, internship_company_id: '' });
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => {
+                        // Delay hiding to allow clicking suggestion
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      onClick={() => setShowSuggestions(!showSuggestions)}
+                    />
+                    <ChevronDown 
+                      size={18} 
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform ${showSuggestions ? 'rotate-180' : ''}`} 
+                    />
+                  </div>
+                  {showSuggestions && (
+                    <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto">
+                      <div
+                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-500 border-b italic text-sm"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setForm({ ...form, internship_company_id: '' });
+                          setCompanySearch('');
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        -- ไม่ระบุ --
+                      </div>
+                      {filteredCompanies.length > 0 ? (
+                        filteredCompanies.map(c => (
+                          <div
+                            key={c.company_id}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b last:border-none text-base"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectCompany(c);
+                            }}
+                          >
+                            {c.company_name}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-gray-400 italic text-sm text-center py-4">ไม่พบบริษัทที่ค้นหา</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

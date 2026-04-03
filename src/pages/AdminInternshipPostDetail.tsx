@@ -1,5 +1,5 @@
 import AdminLayout from '../components/AdminLayout';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
@@ -22,6 +22,7 @@ type PostResponse = {
   internship_requirements?: string;
   internship_expired_date?: string;
   internship_link?: string;
+  internship_poster?: string;
   internship_status?: number;
   mou?: number;
 };
@@ -37,7 +38,7 @@ const PROVINCES = [
   'อำนาจเจริญ','อุดรธานี','อุตรดิตถ์','อุทัยธานี','อุบลราชธานี','เชียงราย','เชียงใหม่'
 ];
 
-const COMP_UNITS = ['ต่อเดือน', 'ต่อวัน', 'ต่อชั่วโมง', 'ต่อโปรเจค'];
+const COMP_UNITS = ['ต่อเดือน', 'ต่อวัน'];
 
 export default function AdminInternshipPostDetail() {
   const navigate = useNavigate();
@@ -60,9 +61,31 @@ export default function AdminInternshipPostDetail() {
     internship_requirements: '',
     internship_expired_date: '',
     internship_link: '',
+    internship_apply_type: 'link',
+    internship_poster: '',
     internship_status: 1,
     mou: 0
   });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const response = await axios.post('http://localhost:5000/api/uploads/poster', {
+          filename: file.name,
+          data: reader.result
+        });
+        setFormData(prev => ({ ...prev, internship_poster: response.data.url }));
+      } catch (error) {
+        console.error('Error uploading poster:', error);
+        alert('อัปโหลดรูปภาพไม่สำเร็จ');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,6 +116,8 @@ export default function AdminInternshipPostDetail() {
           internship_requirements: post.internship_requirements || '',
           internship_expired_date: post.internship_expired_date ? post.internship_expired_date.split('T')[0] : '',
           internship_link: post.internship_link || '',
+          internship_apply_type: (post as any).internship_apply_type || 'link',
+          internship_poster: post.internship_poster || '',
           internship_status: post.internship_status ?? 1,
           mou: post.mou ?? 0
         });
@@ -172,36 +197,36 @@ export default function AdminInternshipPostDetail() {
 
   return (
     <AdminLayout>
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-lg font-bold text-gray-800">แก้ไขโพสต์ประกาศรับสมัครนักศึกษาฝึกงาน</h1>
-              <div className="text-xs text-gray-400 mt-1">Post ID: {id}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-50"
-                onClick={() => navigate('/admin/internship-posts')}
-              >
-                ยกเลิก
-              </button>
-              <button
-                className="px-6 py-2.5 rounded-lg border border-red-200 bg-white text-red-600 font-semibold text-base hover:bg-red-50"
-                onClick={handleDelete}
-              >
-                ลบโพสต์
-              </button>
-              <button
-                className="px-7 py-2.5 rounded-lg bg-blue-900 text-white font-semibold text-base hover:bg-blue-800"
-                onClick={handleSave}
-              >
-                บันทึก
-              </button>
-            </div>
+      <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <h1 className="text-4xl font-bold">รายละเอียดประกาศงาน</h1>
+          <div className="flex gap-3">
+            <button
+              className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
+              onClick={() => navigate('/admin/internship-posts')}
+            >
+              ยกเลิก
+            </button>
+            <button
+              className="px-6 py-2.5 rounded-lg bg-red-600 border border-white text-white font-semibold text-base hover:bg-red-700 transition-colors"
+              onClick={handleDelete}
+            >
+              ลบโพสต์
+            </button>
+            <button
+              className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 transition-colors"
+              onClick={handleSave}
+            >
+              บันทึก
+            </button>
           </div>
+        </div>
+      </div>
 
-          <div className="p-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <p className="text-sm text-gray-400 mb-4 font-mono">Post ID: {id}</p>
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -223,8 +248,8 @@ export default function AdminInternshipPostDetail() {
                 <div className="relative">
                   <input
                     type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    placeholder="ค้นหาบริษัท"
+                    className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                    placeholder="เลือกหรือค้นหาบริษัท"
                     value={companySearch}
                     onChange={(e) => {
                       setCompanySearch(e.target.value);
@@ -232,23 +257,31 @@ export default function AdminInternshipPostDetail() {
                       setShowSuggestions(true);
                     }}
                     onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    onClick={() => setShowSuggestions(!showSuggestions)}
                   />
-                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <ChevronDown 
+                    size={18} 
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform ${showSuggestions ? 'rotate-180' : ''}`} 
+                  />
                 </div>
-                {showSuggestions && companySearch && (
+                {showSuggestions && (
                   <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto">
                     {filteredCompanies.length > 0 ? (
                       filteredCompanies.map(c => (
                         <div
                           key={c.company_id}
-                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b last:border-none"
-                          onClick={() => handleSelectCompany(c)}
+                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b last:border-none text-base"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectCompany(c);
+                          }}
                         >
                           {c.company_name}
                         </div>
                       ))
                     ) : (
-                      <div className="px-4 py-2 text-gray-400 italic">ไม่พบบริษัทนี้</div>
+                      <div className="px-4 py-2 text-gray-400 italic text-center py-4">ไม่พบบริษัทที่ค้นหา</div>
                     )}
                   </div>
                 )}
@@ -377,15 +410,76 @@ export default function AdminInternshipPostDetail() {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  ลิงก์สำหรับสมัครงาน
+                  ช่องทางการสมัครงาน <span className="text-red-500">*</span>
                 </label>
+                <div className="flex items-center gap-6 mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="apply_type"
+                      value="link"
+                      checked={formData.internship_apply_type === 'link'}
+                      onChange={(e) => setFormData({ ...formData, internship_apply_type: e.target.value })}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-sm text-gray-700">ลิงก์สมัครงาน</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="apply_type"
+                      value="email"
+                      checked={formData.internship_apply_type === 'email'}
+                      onChange={(e) => setFormData({ ...formData, internship_apply_type: e.target.value })}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-sm text-gray-700">อีเมลติดต่อ</span>
+                  </label>
+                </div>
                 <input
-                  type="text"
+                  type={formData.internship_apply_type === 'email' ? 'email' : 'text'}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  placeholder="เช่น https://company.com/apply"
+                  placeholder={formData.internship_apply_type === 'email' ? 'เช่น hr@company.com' : 'เช่น https://company.com/apply'}
                   value={formData.internship_link}
                   onChange={(e) => setFormData({ ...formData, internship_link: e.target.value })}
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  รูปโปสเตอร์ประชาสัมพันธ์ (ลิงก์รูปภาพ หรือ อัปโหลดไฟล์)
+                </label>
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    placeholder="เช่น https://example.com/poster.jpg หรืออัปโหลดด้านล่าง"
+                    value={formData.internship_poster}
+                    onChange={(e) => setFormData({ ...formData, internship_poster: e.target.value })}
+                  />
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {formData.internship_poster && (
+                      <div className="text-xs text-green-600 font-medium">
+                        (มีไฟล์/ลิงก์รูปภาพแล้ว)
+                      </div>
+                    )}
+                  </div>
+                  {formData.internship_poster && (
+                    <div className="mt-2 border rounded-lg p-2 bg-gray-50 flex justify-center">
+                      <img 
+                        src={formData.internship_poster.startsWith('/') ? `http://localhost:5000${formData.internship_poster}` : formData.internship_poster} 
+                        alt="Poster Preview" 
+                        className="max-h-40 object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

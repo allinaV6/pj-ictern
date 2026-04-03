@@ -13,8 +13,12 @@ export default function Login() {
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
 
-    if (!email || !password) {
-      alert("กรุณากรอกอีเมลและรหัสผ่าน");
+    if (!email) {
+      alert("กรุณากรอกอีเมล");
+      return;
+    }
+    if (!password) {
+      alert("กรุณากรอกรหัสผ่าน");
       return;
     }
 
@@ -65,10 +69,8 @@ export default function Login() {
     } catch (error: any) {
       console.error(error);
 
-      if (error.code === "auth/user-not-found") {
-        alert("ไม่พบบัญชีผู้ใช้");
-      } else if (error.code === "auth/wrong-password") {
-        alert("รหัสผ่านไม่ถูกต้อง");
+      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        alert("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       } else {
         alert("เข้าสู่ระบบไม่สำเร็จ");
       }
