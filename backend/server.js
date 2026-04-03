@@ -552,36 +552,68 @@ app.get("/api/positions/by-ids", async (req, res) => {
 // ADD FAVORITE
 // ==================================================
 // ==================================================
-app.post('/api/favorites', async (req, res) => {
-  const { user_id, post_id } = req.body;
+app.post("/api/favorites", async (req, res) => {
+  try {
+    const { student_id, post_id } = req.body;
 
-  await db.query(
-    'INSERT INTO favorites (user_id, post_id) VALUES (?, ?)',
-    [user_id, post_id]
-  );
+    if (!student_id || !post_id) {
+      return res.status(400).json({ error: "missing data" });
+    }
 
-  res.json({ success: true });
+    await db.query(
+      `INSERT IGNORE INTO favorite (student_id, internship_posts_id)
+       VALUES (?, ?)`,
+      [student_id, post_id]
+    );
+
+    res.json({ message: "added" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
 });
 // ==================================================
 // REMOVE FAVORITE
 // ==================================================
 // ==================================================
-app.delete('/api/favorites', async (req, res) => {
-  const { user_id, post_id } = req.body;
+app.delete("/api/favorites", async (req, res) => {
+  try {
+    const { student_id, post_id } = req.body;
 
-  await db.query(
-    'DELETE FROM favorites WHERE user_id = ? AND post_id = ?',
-    [user_id, post_id]
-  );
+    await db.query(
+      `DELETE FROM favorite
+       WHERE student_id = ? AND internship_posts_id = ?`,
+      [student_id, post_id]
+    );
 
-  res.json({ success: true });
+    res.json({ message: "deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
 });
 
 // ==================================================
 // GET FAVORITE FROM USER
 // ==================================================
 // ==================================================
+app.get("/api/favorites/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
 
+    const [rows] = await db.query(
+      `SELECT internship_posts_id AS post_id
+       FROM favorite
+       WHERE student_id = ?`,
+      [student_id]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

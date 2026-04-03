@@ -44,40 +44,51 @@ function InternshipPosts() {
         }
         return res.json();
       })
-.then((data) => {
-  console.log("Fetched data:", data); // ✅ อันเดิม
-
-  if (Array.isArray(data)) {
-    setPosts(data);
-
-    console.log("🔥 POSTS AFTER SET:", data); // 👈 เพิ่มตรงนี้
-  } else {
-    console.warn("Fetched data is not an array:", data);
-    setPosts([]);
-  }
-
-  setLoading(false);
-})
+      .then((data) => {
+        console.log("Fetched data:", data);
+        if (Array.isArray(data)) {
+          setPosts(data);
+        } else {
+          console.warn("Fetched data is not an array:", data);
+          setPosts([]);
+        }
+        setLoading(false);
+      })
       .catch((err) => {
         console.error("Fetch failed:", err);
         setError("ไม่สามารถโหลดข้อมูลได้: " + err.message);
         setLoading(false);
       });
   }, []);
+
+// 🔥 function โหลด favorite
+const loadFavorites = async () => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const studentId = user?.student_id;
+
+  if (!studentId) {
+    setFavoriteIds([]); // กันค่าค้าง
+    return;
+  }
+
+  const res = await fetch(`http://localhost:5000/api/favorites/${studentId}`);
+  const data = await res.json();
+
+  const ids = data.map((f: any) => f.post_id);
+  setFavoriteIds(ids);
+};
+
+// 🔥 useEffect
 useEffect(() => {
-  const studentId = localStorage.getItem("student_id");
-
-  if (!studentId) return;
-
-  fetch(`http://localhost:5000/api/favorites/${studentId}`)
-    .then(res => res.json())
-    .then(data => {
-      const ids = data.map((f: any) => f.post_id);
-      setFavoriteIds(ids);
-    });
+  loadFavorites();
 }, []);
-  const toggleFavorite = async (postId: number) => {
-  const studentId = localStorage.getItem("student_id");
+
+// 🔥 toggle favorite
+const toggleFavorite = async (postId: number) => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const studentId = user?.student_id;
 
   if (!studentId) {
     alert("กรุณาเข้าสู่ระบบก่อน");
@@ -92,21 +103,19 @@ useEffect(() => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ student_id: studentId, post_id: postId })
     });
-
-    setFavoriteIds(prev => prev.filter(id => id !== postId));
   } else {
     await fetch("http://localhost:5000/api/favorites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ student_id: studentId, post_id: postId })
     });
-
-    setFavoriteIds(prev => [...prev, postId]);
   }
+
+  await loadFavorites(); // 🔥 สำคัญมาก (sync DB จริง)
 };
 
   const filteredPosts = useMemo(() => {
-  const keyword = searchTerm.trim().toLowerCase();
+    const keyword = searchTerm.trim().toLowerCase();
 
   let result = posts
     .filter((post) => {
