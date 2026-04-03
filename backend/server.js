@@ -1651,6 +1651,47 @@ updateExpiredPosts();
 // Schedule the update function to run daily (e.g., every 24 hours)
 setInterval(updateExpiredPosts, 24 * 60 * 60 * 1000);
 
+///////NOTI///////////
+app.get("/api/notifications/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+
+    const [rows] = await db.query(`
+      SELECT 
+        i.internship_posts_id AS post_id,
+        i.internship_title,
+        i.internship_expired_date
+      FROM favorite f
+      JOIN internship_posts i 
+        ON f.internship_posts_id = i.internship_posts_id
+      WHERE f.student_id = ?
+    `, [student_id]);
+
+    const today = new Date();
+
+    const notifications = rows
+      .map(post => {
+        const expired = new Date(post.internship_expired_date);
+        const diffTime = expired.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 3 && diffDays >= 0) {
+          return {
+            ...post,
+            daysLeft: diffDays
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    res.json(notifications);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
