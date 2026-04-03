@@ -55,7 +55,7 @@ function InternshipPosts() {
   const navigate = useNavigate();
   const [sortType, setSortType] = useState("");
 
-  useEffect(() => {
+ useEffect(() => {
     console.log("Fetching posts from http://localhost:5000/api/posts...");
     fetch("http://localhost:5000/api/posts")
       .then((res) => {
@@ -65,20 +65,16 @@ function InternshipPosts() {
         }
         return res.json();
       })
-.then((data) => {
-  console.log("Fetched data:", data); // ✅ อันเดิม
-
-  if (Array.isArray(data)) {
-    setPosts(data);
-
-    console.log("🔥 POSTS AFTER SET:", data); // 👈 เพิ่มตรงนี้
-  } else {
-    console.warn("Fetched data is not an array:", data);
-    setPosts([]);
-  }
-
-  setLoading(false);
-})
+      .then((data) => {
+        console.log("Fetched data:", data);
+        if (Array.isArray(data)) {
+          setPosts(data);
+        } else {
+          console.warn("Fetched data is not an array:", data);
+          setPosts([]);
+        }
+        setLoading(false);
+      })
       .catch((err) => {
         console.error("Fetch failed:", err);
         setError("ไม่สามารถโหลดข้อมูลได้: " + err.message);
@@ -86,51 +82,58 @@ function InternshipPosts() {
       });
   }, []);
 
-  useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-    const studentId = user?.student_id;
+// 🔥 function โหลด favorite
+const loadFavorites = async () => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const studentId = user?.student_id;
 
-    if (!studentId) return;
+  if (!studentId) {
+    setFavoriteIds([]); // กันค่าค้าง
+    return;
+  }
 
-    fetch(`http://localhost:5000/api/favorites/${studentId}`)
-      .then(res => res.json())
-      .then(data => {
-        const ids = data.map((f: any) => f.post_id);
-        setFavoriteIds(ids);
-      });
-  }, []);
+  const res = await fetch(`http://localhost:5000/api/favorites/${studentId}`);
+  const data = await res.json();
 
-  const toggleFavorite = async (postId: number) => {
-    const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-    const studentId = user?.student_id;
+  const ids = data.map((f: any) => f.post_id);
+  setFavoriteIds(ids);
+};
 
-    if (!studentId) {
-      alert("กรุณาเข้าสู่ระบบก่อน");
-      return;
-    }
+// 🔥 useEffect
+useEffect(() => {
+  loadFavorites();
+}, []);
 
-    const isFav = favoriteIds.includes(postId);
+// 🔥 toggle favorite
+const toggleFavorite = async (postId: number) => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const studentId = user?.student_id;
 
-    if (isFav) {
-      await fetch("http://localhost:5000/api/favorites", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_id: studentId, post_id: postId })
-      });
+  if (!studentId) {
+    alert("กรุณาเข้าสู่ระบบก่อน");
+    return;
+  }
 
-      setFavoriteIds(prev => prev.filter(id => id !== postId));
-    } else {
-      await fetch("http://localhost:5000/api/favorites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_id: studentId, post_id: postId })
-      });
+  const isFav = favoriteIds.includes(postId);
 
-      setFavoriteIds(prev => [...prev, postId]);
-    }
-  };
+  if (isFav) {
+    await fetch("http://localhost:5000/api/favorites", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, post_id: postId })
+    });
+  } else {
+    await fetch("http://localhost:5000/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, post_id: postId })
+    });
+  }
+
+  await loadFavorites(); // 🔥 สำคัญมาก (sync DB จริง)
+};
 
   const filteredPosts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
