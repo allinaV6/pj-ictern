@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { MapPin, Clock, Calendar, FileText, Building2, Mail, X } from "lucide-react";
+import { MapPin, Clock, Calendar, FileText, Building2, Mail, Star } from "lucide-react";
 
 interface InternshipPostType {
   post_id: number;
@@ -97,8 +97,8 @@ function InternshipPostDetail() {
               {post.company_name}
             </div>
 
-            <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">
-              ⭐ {post.rating ? post.rating.toFixed(1) : "0.0"}
+            <div className={`flex items-center gap-1 font-bold text-sm ${post.review_count ? 'text-yellow-500' : 'text-gray-400'}`}>
+              <Star size={16} className="fill-current" /> {post.rating ? post.rating.toFixed(1) : "0.0"}
               <span className="text-gray-400 font-normal ml-1">
                 ({post.review_count || 0} Reviews)
               </span>

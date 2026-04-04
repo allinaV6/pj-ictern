@@ -86,6 +86,48 @@ app.post("/api/auth/firebase-login", async (req, res) => {
 });
 
 // ==================================================
+// GET ADMINS
+// ==================================================
+app.get("/api/admins", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT admin_id, admin_name, email FROM admin WHERE admin_status = 'active' ORDER BY admin_name`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
+// SEND NOTIFICATION
+// ==================================================
+app.post("/api/notifications/send", async (req, res) => {
+  try {
+    const { admin_id, user_id, user_name, message } = req.body;
+
+    if (!admin_id || !message) {
+      return res.status(400).json({ error: "missing data" });
+    }
+
+    // สร้างการแจ้งเตือนเก็บไว้ (ถ้ามีตาราง notification)
+    // ตอนนี้แค่ return success ลองเพิ่มตาราง notification ทีหลัง
+    
+    res.json({
+      message: "notification sent",
+      admin_id,
+      user_id,
+      user_name,
+      notification_message: message
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
 // USERS (ADMIN)
 // ==================================================
 app.get("/api/users", async (req, res) => {
@@ -1608,6 +1650,7 @@ app.post("/api/reviews", async (req, res) => {
     let {
       company_id,
       student_id,
+      user_type,
       review_sum_rating,
       review_work_rating,
       review_life_rating,
@@ -1618,6 +1661,9 @@ app.post("/api/reviews", async (req, res) => {
     company_id = Number(company_id);
     student_id = Number(student_id);
 
+    // เอา ID ตามประเภท user - admin ใช้ negative ID
+    const insert_id = user_type === 'admin' ? -Math.abs(student_id) : student_id;
+
     // ตรวจสอบว่ามีคอลัมน์ student_internship_id หรือไม่จาก schema ที่เรา probe มาคือไม่มี
     const sql = `
       INSERT INTO review 
@@ -1627,7 +1673,7 @@ app.post("/api/reviews", async (req, res) => {
 
     const [result] = await db.query(sql, [
       company_id,
-      student_id,
+      insert_id,
       review_sum_rating,
       review_work_rating,
       review_life_rating,
@@ -1859,12 +1905,16 @@ app.get("/api/positions/by-ids", async (req, res) => {
 app.get("/api/favorites/:student_id", async (req, res) => {
   try {
     const { student_id } = req.params;
+    const { user_type } = req.query; // 'student' or 'admin'
+    
+    // เอา ID ตามประเภท user - admin ใช้ negative ID
+    const query_id = user_type === 'admin' ? -Math.abs(student_id) : student_id;
 
     const [rows] = await db.query(
       `SELECT internship_posts_id AS post_id
        FROM favorite
        WHERE student_id = ?`,
-      [student_id]
+      [query_id]
     );
 
     res.json(rows);
@@ -1876,16 +1926,19 @@ app.get("/api/favorites/:student_id", async (req, res) => {
 
 app.post("/api/favorites", async (req, res) => {
   try {
-    const { student_id, post_id } = req.body;
+    const { student_id, post_id, user_type } = req.body;
 
     if (!student_id || !post_id) {
       return res.status(400).json({ error: "missing data" });
     }
 
+    // เอา ID ตามประเภท user - admin ใช้ negative ID
+    const insert_id = user_type === 'admin' ? -Math.abs(student_id) : student_id;
+
     await db.query(
       `INSERT IGNORE INTO favorite (student_id, internship_posts_id)
        VALUES (?, ?)`,
-      [student_id, post_id]
+      [insert_id, post_id]
     );
 
     res.json({ message: "added" });
@@ -1897,12 +1950,15 @@ app.post("/api/favorites", async (req, res) => {
 
 app.delete("/api/favorites", async (req, res) => {
   try {
-    const { student_id, post_id } = req.body;
+    const { student_id, post_id, user_type } = req.body;
+
+    // เอา ID ตามประเภท user - admin ใช้ negative ID
+    const delete_id = user_type === 'admin' ? -Math.abs(student_id) : student_id;
 
     await db.query(
       `DELETE FROM favorite
        WHERE student_id = ? AND internship_posts_id = ?`,
-      [student_id, post_id]
+      [delete_id, post_id]
     );
 
     res.json({ message: "deleted" });

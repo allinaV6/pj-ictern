@@ -334,7 +334,7 @@ export default function DetailCompany() {
 
                     <div className="text-yellow-500 font-bold flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        ⭐ {review.rating}
+                        <Star size={16} className="fill-current" /> {review.rating}
                       </div>
                       <button
                         onClick={() => {
