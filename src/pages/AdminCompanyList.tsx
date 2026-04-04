@@ -127,13 +127,14 @@ export default function AdminCompanyList() {
         total_posts: parseNumber(row['Total Posts']),
       }));
 
-      setCompanies(imported);
+      await axios.post('http://localhost:5000/api/companies/import', imported);
+      await fetchCompanies();
       setCurrentPage(1);
       setImportExportOpen(false);
-      alert('นำเข้าไฟล์เรียบร้อยแล้ว ข้อมูลตารางจะถูกแทนที่ด้วยข้อมูลจากไฟล์ Excel');
+      alert('นำเข้าข้อมูลสำเร็จ และอัปเดตลงฐานข้อมูลเรียบร้อยแล้ว');
     } catch (error) {
       console.error('Error importing companies:', error);
-      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์ Excel');
+      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
     }
   };
 
@@ -155,11 +156,19 @@ export default function AdminCompanyList() {
     e.target.value = '';
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/companies');
+      setCompanies(res.data);
+    } catch (e) {
+      console.error('fetch companies error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    axios.get('http://localhost:5000/api/companies')
-      .then((res) => setCompanies(res.data))
-      .catch((e) => console.error('fetch companies error:', e))
-      .finally(() => setLoading(false));
+    fetchCompanies();
   }, []);
 
   const filtered = useMemo(() => {

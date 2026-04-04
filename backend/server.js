@@ -641,6 +641,200 @@ app.delete("/api/companies/:id", async (req, res) => {
   }
 });
 
+app.post('/api/companies/import', async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const rows = Array.isArray(req.body) ? req.body : [];
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'No valid rows to import' });
+    }
+
+    const parseNumber = (value, fallback = 0) => {
+      if (typeof value === 'number') return value;
+      if (value === undefined || value === null || value === '') return fallback;
+      const parsed = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    const parseStatus = (value) => {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === '0' || normalized.includes('inactive') || normalized.includes('ปิด')) return 0;
+      return 1;
+    };
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      return date.toISOString().slice(0, 10);
+    };
+
+    const normalizedRows = rows
+      .map((row) => ({
+        company_id: parseNumber(row.company_id || row['Company ID']),
+        company_name: String(row.company_name || row['Company Name'] || '').trim(),
+        company_address: String(row.company_address || row['Address'] || '').trim(),
+        company_type: String(row.company_type || row['Type'] || '').trim(),
+        company_email: String(row.company_email || row['Email'] || '').trim(),
+        company_phone_num: String(row.company_phone_num || row['Phone'] || '').trim(),
+        company_link: String(row.company_link || row['Link'] || '').trim(),
+        company_description: String(row.company_description || row['Description'] || '').trim(),
+        company_logo: String(row.company_logo || row['Logo URL'] || '').trim(),
+        company_status: parseStatus(row.company_status ?? row['Status']),
+        company_create_date: normalizeDate(row.company_create_date || row['Created Date']),
+        admin_id: parseNumber(row.admin_id || row['Admin ID']),
+        account_id: parseNumber(row.account_id || row['Account ID']),
+      }))
+      .filter((row) => row.company_name);
+
+    if (normalizedRows.length === 0) {
+      return res.status(400).json({ message: 'No valid rows to import' });
+    }
+
+    const rowMap = new Map();
+    normalizedRows.forEach((row) => {
+      const key = row.company_id > 0 ? `id:${row.company_id}` : `name:${row.company_name.toLowerCase()}`;
+      rowMap.set(key, row);
+    });
+    const importedRows = Array.from(rowMap.values());
+
+    await connection.beginTransaction();
+
+    const [adminRows] = await connection.query('SELECT admin_id, account_id FROM admin');
+    const adminByAccountId = new Map();
+    adminRows.forEach((row) => {
+      if (row.account_id) adminByAccountId.set(Number(row.account_id), row.admin_id);
+    });
+    const fallbackAdminId = adminRows.length > 0 ? adminRows[0].admin_id : null;
+
+    if (!fallbackAdminId) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'ไม่พบข้อมูลผู้ดูแลระบบสำหรับผูกกับบริษัท' });
+    }
+
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const row of importedRows) {
+      let targetCompanyId = null;
+
+      if (row.company_id > 0) {
+        const [existingById] = await connection.query(
+          'SELECT company_id FROM company WHERE company_id = ? LIMIT 1',
+          [row.company_id]
+        );
+        if (existingById.length > 0) {
+          targetCompanyId = existingById[0].company_id;
+        }
+      }
+
+      if (!targetCompanyId) {
+        const [existingByName] = await connection.query(
+          'SELECT company_id FROM company WHERE LOWER(TRIM(company_name)) = LOWER(TRIM(?)) LIMIT 1',
+          [row.company_name]
+        );
+        if (existingByName.length > 0) {
+          targetCompanyId = existingByName[0].company_id;
+        }
+      }
+
+      const resolvedAdminId = row.admin_id > 0
+        ? row.admin_id
+        : (row.account_id > 0 && adminByAccountId.has(row.account_id)
+          ? adminByAccountId.get(row.account_id)
+          : fallbackAdminId);
+
+      if (targetCompanyId) {
+        await connection.query(
+          `UPDATE company SET
+            company_name = ?, company_address = ?, company_type = ?, company_email = ?,
+            company_phone_num = ?, company_link = ?, company_description = ?, company_logo = ?,
+            company_status = ?, admin_id = ?,
+            company_create_date = IFNULL(?, company_create_date)
+          WHERE company_id = ?`,
+          [
+            row.company_name,
+            row.company_address || null,
+            row.company_type || null,
+            row.company_email || null,
+            row.company_phone_num || null,
+            row.company_link || null,
+            row.company_description || null,
+            row.company_logo || null,
+            row.company_status,
+            resolvedAdminId,
+            row.company_create_date,
+            targetCompanyId,
+          ]
+        );
+        updatedCount++;
+        continue;
+      }
+
+      if (row.company_id > 0) {
+        await connection.query(
+          `INSERT INTO company (
+            company_id, company_name, company_address, company_type, company_email,
+            company_phone_num, company_link, company_description, company_logo,
+            company_status, company_create_date, admin_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IFNULL(?, NOW()), ?)`,
+          [
+            row.company_id,
+            row.company_name,
+            row.company_address || null,
+            row.company_type || null,
+            row.company_email || null,
+            row.company_phone_num || null,
+            row.company_link || null,
+            row.company_description || null,
+            row.company_logo || null,
+            row.company_status,
+            row.company_create_date,
+            resolvedAdminId,
+          ]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO company (
+            company_name, company_address, company_type, company_email,
+            company_phone_num, company_link, company_description, company_logo,
+            company_status, company_create_date, admin_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IFNULL(?, NOW()), ?)`,
+          [
+            row.company_name,
+            row.company_address || null,
+            row.company_type || null,
+            row.company_email || null,
+            row.company_phone_num || null,
+            row.company_link || null,
+            row.company_description || null,
+            row.company_logo || null,
+            row.company_status,
+            row.company_create_date,
+            resolvedAdminId,
+          ]
+        );
+      }
+
+      insertedCount++;
+    }
+
+    await connection.commit();
+    res.json({
+      message: 'Companies imported',
+      insertedCount,
+      updatedCount,
+      totalCount: insertedCount + updatedCount,
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: err?.message || 'Database error' });
+  } finally {
+    connection.release();
+  }
+});
+
 // ==================================================
 // UPLOAD COMPANY LOGO (Base64)
 // ==================================================
@@ -940,6 +1134,170 @@ app.post("/api/admin/positions", async (req, res) => {
   }
 });
 
+app.post('/api/admin/positions/import', async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const rows = Array.isArray(req.body) ? req.body : [];
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'No valid rows to import' });
+    }
+
+    const normalizeExcelKey = (key) =>
+      String(key || '').trim().toLowerCase().replace(/[\W_]+/g, '');
+
+    const parseNumber = (value, fallback = 0) => {
+      if (typeof value === 'number') return value;
+      if (value === undefined || value === null || value === '') return fallback;
+      const parsed = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    const normalizedRows = rows.map((row) => {
+      const normalized = {};
+      Object.entries(row || {}).forEach(([key, value]) => {
+        normalized[normalizeExcelKey(key)] = value;
+      });
+
+      const getValue = (...keys) => {
+        for (const key of keys) {
+          const normalizedKey = normalizeExcelKey(key);
+          if (normalized[normalizedKey] !== undefined && normalized[normalizedKey] !== null) {
+            return normalized[normalizedKey];
+          }
+        }
+        return '';
+      };
+
+      const questionList = Array.isArray(row?.questions)
+        ? row.questions.map((question) => String(question || '').trim()).filter(Boolean)
+        : [
+            String(getValue('Question 1', 'question1', 'question_1') || '').trim(),
+            String(getValue('Question 2', 'question2', 'question_2') || '').trim(),
+            String(getValue('Question 3', 'question3', 'question_3') || '').trim(),
+            String(getValue('Question 4', 'question4', 'question_4') || '').trim(),
+            String(getValue('Question 5', 'question5', 'question_5') || '').trim(),
+          ];
+
+      return {
+        position_id: parseNumber(getValue('Position ID', 'position_id', 'ID'), 0),
+        position_name: String(getValue('Position Name', 'position_name', 'ชื่อตำแหน่ง') || '').trim(),
+        position_description: String(getValue('Description', 'position_description', 'คำอธิบายตำแหน่งงาน') || '').trim(),
+        position_skill: String(getValue('Skill Guide', 'position_skill', 'แนวทางการพัฒนาทักษะ') || '').trim(),
+        questions: questionList.slice(0, 5),
+      };
+    });
+
+    const rowMap = new Map();
+    normalizedRows.forEach((row) => {
+      if (!row.position_name) return;
+      const key = row.position_id > 0
+        ? `id:${row.position_id}`
+        : `name:${row.position_name.toLowerCase()}`;
+      rowMap.set(key, row);
+    });
+
+    const importedRows = Array.from(rowMap.values());
+    if (importedRows.length === 0) {
+      return res.status(400).json({ message: 'No valid rows to import' });
+    }
+
+    await connection.beginTransaction();
+
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const row of importedRows) {
+      let targetPositionId = null;
+
+      if (row.position_id > 0) {
+        const [existingById] = await connection.query(
+          'SELECT position_id FROM `position` WHERE position_id = ? LIMIT 1',
+          [row.position_id]
+        );
+        if (existingById.length > 0) {
+          targetPositionId = existingById[0].position_id;
+        }
+      }
+
+      if (!targetPositionId) {
+        const [existingByName] = await connection.query(
+          'SELECT position_id FROM `position` WHERE LOWER(TRIM(position_name)) = LOWER(TRIM(?)) LIMIT 1',
+          [row.position_name]
+        );
+        if (existingByName.length > 0) {
+          targetPositionId = existingByName[0].position_id;
+        }
+      }
+
+      if (targetPositionId) {
+        await connection.query(
+          'UPDATE `position` SET position_name = ?, position_description = ?, position_skill = ? WHERE position_id = ?',
+          [row.position_name, row.position_description, row.position_skill, targetPositionId]
+        );
+
+        await connection.query('DELETE FROM quiz_question WHERE position_id = ?', [targetPositionId]);
+        if (Array.isArray(row.questions) && row.questions.length > 0) {
+          for (const question of row.questions.slice(0, 5)) {
+            await connection.query(
+              'INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)',
+              [question, targetPositionId]
+            );
+          }
+        }
+
+        updatedCount++;
+        continue;
+      }
+
+      if (row.position_id > 0) {
+        const [insertResult] = await connection.query(
+          'INSERT INTO `position` (position_id, position_name, position_description, position_skill) VALUES (?, ?, ?, ?)',
+          [row.position_id, row.position_name, row.position_description, row.position_skill]
+        );
+        const newPositionId = insertResult.insertId || row.position_id;
+        if (Array.isArray(row.questions) && row.questions.length > 0) {
+          for (const question of row.questions.slice(0, 5)) {
+            await connection.query(
+              'INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)',
+              [question, newPositionId]
+            );
+          }
+        }
+      } else {
+        const [insertResult] = await connection.query(
+          'INSERT INTO `position` (position_name, position_description, position_skill) VALUES (?, ?, ?)',
+          [row.position_name, row.position_description, row.position_skill]
+        );
+        const newPositionId = insertResult.insertId;
+        if (Array.isArray(row.questions) && row.questions.length > 0) {
+          for (const question of row.questions.slice(0, 5)) {
+            await connection.query(
+              'INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)',
+              [question, newPositionId]
+            );
+          }
+        }
+      }
+      insertedCount++;
+    }
+
+    await connection.commit();
+    res.json({
+      message: 'Positions imported',
+      insertedCount,
+      updatedCount,
+      totalCount: insertedCount + updatedCount,
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: err?.message || 'Database error' });
+  } finally {
+    connection.release();
+  }
+});
+
 app.put("/api/admin/positions/:id", async (req, res) => {
   const connection = await db.getConnection();
   try {
@@ -1016,9 +1374,6 @@ app.delete("/api/admin/positions/:id", async (req, res) => {
 // ==================================================
 app.get("/api/posts", async (req, res) => {
   try {
-    // 🔥 Auto-update expired posts before fetching
-    await updateExpiredPosts();
-
     const sql = `
       SELECT 
         i.internship_posts_id AS post_id,
@@ -1142,6 +1497,7 @@ app.get("/api/posts/company/:id", async (req, res) => {
         internship_title,
         internship_location,
         internship_duration,
+        internship_create_date,
         internship_compensation,
         internship_description,
         internship_responsibilities,
@@ -1615,8 +1971,11 @@ app.post("/api/posts", async (req, res) => {
 
     res.json({ message: "Post created", post_id: result.insertId });
 
-    // 🔥 Auto-update expired posts after creation
-    await updateExpiredPosts();
+    if (internship_expired_date) {
+      updateExpiredPosts().catch((error) => {
+        console.error('❌ Error updating expired posts after create:', error);
+      });
+    }
   } catch (err) {
     console.error("❌ CREATE POST ERROR:", err);
     res.status(500).json({ message: "Database error", error: err.message });
@@ -1663,8 +2022,11 @@ app.put("/api/posts/:id", async (req, res) => {
 
     res.json({ message: "Post updated" });
 
-    // 🔥 Auto-update expired posts after update
-    await updateExpiredPosts();
+    if (internship_expired_date) {
+      updateExpiredPosts().catch((error) => {
+        console.error('❌ Error updating expired posts after update:', error);
+      });
+    }
   } catch (err) {
     console.error("❌ UPDATE POST ERROR:", err);
     res.status(500).json({ message: "Database error", error: err.message });
@@ -1682,13 +2044,259 @@ app.delete("/api/posts/:id", async (req, res) => {
   }
 });
 
+app.post('/api/posts/import', async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const rows = Array.isArray(req.body) ? req.body : [];
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'No valid rows to import' });
+    }
+
+    const parseNumber = (value, fallback = 0) => {
+      if (typeof value === 'number') return value;
+      if (value === undefined || value === null || value === '') return fallback;
+      const parsed = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    const parseStatus = (value) => {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === '0' || normalized.includes('inactive') || normalized.includes('ปิด')) return 0;
+      return 1;
+    };
+
+    const parseYesNo = (value) => {
+      const normalized = String(value || '').trim().toLowerCase();
+      return normalized === 'yes' || normalized === 'y' || normalized === 'true' || normalized.includes('ใช่') ? 1 : 0;
+    };
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      return date.toISOString().slice(0, 10);
+    };
+
+    const normalizedRows = rows
+      .map((row) => ({
+        post_id: parseNumber(row.post_id || row['Post ID']),
+        company_id: parseNumber(row.company_id || row['Company ID']),
+        company_name: String(row.company_name || row['Company Name'] || '').trim(),
+        internship_title: String(row.internship_title || row['Title'] || row['Internship Title'] || '').trim(),
+        internship_location: String(row.internship_location || row['Location'] || '').trim(),
+        internship_duration: String(row.internship_duration || row['Duration'] || '').trim(),
+        internship_description: String(row.internship_description || row['Description'] || '').trim(),
+        internship_responsibilities: String(row.internship_responsibilities || row['Responsibilities'] || '').trim(),
+        internship_requirements: String(row.internship_requirements || row['Requirements'] || '').trim(),
+        internship_compensation: String(row.internship_compensation || row['Compensation'] || '').trim(),
+        internship_working_method: String(row.internship_working_method || row['Working Method'] || '').trim(),
+        internship_link: String(row.internship_link || row['Link'] || '').trim(),
+        internship_create_date: normalizeDate(row.internship_create_date || row['Created Date']),
+        internship_expired_date: normalizeDate(row.internship_expired_date || row['Expired Date']),
+        internship_status: parseStatus(row.internship_status ?? row['Status']),
+        mou: parseYesNo(row.mou ?? row['MOU']),
+      }))
+      .filter((row) => row.internship_title);
+
+    if (normalizedRows.length === 0) {
+      return res.status(400).json({ message: 'No valid rows to import' });
+    }
+
+    const rowMap = new Map();
+    normalizedRows.forEach((row) => {
+      const key = row.post_id > 0
+        ? `id:${row.post_id}`
+        : `title:${row.internship_title.toLowerCase()}|company:${row.company_id}`;
+      rowMap.set(key, row);
+    });
+    const importedRows = Array.from(rowMap.values());
+
+    await connection.beginTransaction();
+
+    const [adminRows] = await connection.query('SELECT admin_id FROM admin LIMIT 1');
+    const fallbackAdminId = adminRows.length > 0 ? adminRows[0].admin_id : null;
+    if (!fallbackAdminId) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'ไม่พบข้อมูลผู้ดูแลระบบสำหรับผูกกับโพสต์' });
+    }
+
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const row of importedRows) {
+      let resolvedCompanyId = row.company_id;
+
+      if (!(resolvedCompanyId > 0) && row.company_name) {
+        const [companyRows] = await connection.query(
+          'SELECT company_id FROM company WHERE LOWER(TRIM(company_name)) = LOWER(TRIM(?)) LIMIT 1',
+          [row.company_name]
+        );
+        if (companyRows.length > 0) {
+          resolvedCompanyId = companyRows[0].company_id;
+        }
+      }
+
+      if (!(resolvedCompanyId > 0)) {
+        continue;
+      }
+
+      let targetPostId = null;
+      if (row.post_id > 0) {
+        const [existingById] = await connection.query(
+          'SELECT internship_posts_id FROM internship_posts WHERE internship_posts_id = ? LIMIT 1',
+          [row.post_id]
+        );
+        if (existingById.length > 0) {
+          targetPostId = existingById[0].internship_posts_id;
+        }
+      }
+
+      if (!targetPostId) {
+        const [existingByTitle] = await connection.query(
+          'SELECT internship_posts_id FROM internship_posts WHERE company_id = ? AND LOWER(TRIM(internship_title)) = LOWER(TRIM(?)) LIMIT 1',
+          [resolvedCompanyId, row.internship_title]
+        );
+        if (existingByTitle.length > 0) {
+          targetPostId = existingByTitle[0].internship_posts_id;
+        }
+      }
+
+      if (targetPostId) {
+        await connection.query(
+          `UPDATE internship_posts SET
+            internship_title = ?, company_id = ?, internship_working_method = ?, internship_duration = ?,
+            internship_location = ?, internship_compensation = ?, internship_description = ?,
+            internship_responsibilities = ?, internship_requirements = ?, internship_expired_date = ?,
+            internship_link = ?, internship_apply_type = ?, internship_status = ?, mou = ?,
+            internship_create_date = IFNULL(?, internship_create_date)
+          WHERE internship_posts_id = ?`,
+          [
+            row.internship_title,
+            resolvedCompanyId,
+            row.internship_working_method || null,
+            row.internship_duration || null,
+            row.internship_location || null,
+            row.internship_compensation || null,
+            row.internship_description || null,
+            row.internship_responsibilities || null,
+            row.internship_requirements || null,
+            row.internship_expired_date,
+            row.internship_link || null,
+            'link',
+            row.internship_status,
+            row.mou,
+            row.internship_create_date,
+            targetPostId,
+          ]
+        );
+        updatedCount++;
+        continue;
+      }
+
+      if (row.post_id > 0) {
+        await connection.query(
+          `INSERT INTO internship_posts (
+            internship_posts_id, internship_title, company_id, internship_working_method,
+            internship_duration, internship_location, internship_compensation, internship_description,
+            internship_responsibilities, internship_requirements, internship_expired_date, internship_link,
+            internship_apply_type, internship_poster, internship_status, mou, admin_id, internship_create_date
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IFNULL(?, NOW()))`,
+          [
+            row.post_id,
+            row.internship_title,
+            resolvedCompanyId,
+            row.internship_working_method || null,
+            row.internship_duration || null,
+            row.internship_location || null,
+            row.internship_compensation || null,
+            row.internship_description || null,
+            row.internship_responsibilities || null,
+            row.internship_requirements || null,
+            row.internship_expired_date,
+            row.internship_link || null,
+            'link',
+            null,
+            row.internship_status,
+            row.mou,
+            fallbackAdminId,
+            row.internship_create_date,
+          ]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO internship_posts (
+            internship_title, company_id, internship_working_method,
+            internship_duration, internship_location, internship_compensation, internship_description,
+            internship_responsibilities, internship_requirements, internship_expired_date, internship_link,
+            internship_apply_type, internship_poster, internship_status, mou, admin_id, internship_create_date
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IFNULL(?, NOW()))`,
+          [
+            row.internship_title,
+            resolvedCompanyId,
+            row.internship_working_method || null,
+            row.internship_duration || null,
+            row.internship_location || null,
+            row.internship_compensation || null,
+            row.internship_description || null,
+            row.internship_responsibilities || null,
+            row.internship_requirements || null,
+            row.internship_expired_date,
+            row.internship_link || null,
+            'link',
+            null,
+            row.internship_status,
+            row.mou,
+            fallbackAdminId,
+            row.internship_create_date,
+          ]
+        );
+      }
+      insertedCount++;
+    }
+
+    await connection.commit();
+
+    res.json({
+      message: 'Posts imported',
+      insertedCount,
+      updatedCount,
+      totalCount: insertedCount + updatedCount,
+    });
+
+    updateExpiredPosts().catch((error) => {
+      console.error('❌ Error updating expired posts after import:', error);
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: err?.message || 'Database error' });
+  } finally {
+    connection.release();
+  }
+});
+
 const updateExpiredPosts = require('./updateExpiredPosts');
 
-// Run the update function once on startup
-updateExpiredPosts();
+const THAILAND_OFFSET_MS = 7 * 60 * 60 * 1000;
+const HOUR_IN_MS = 60 * 60 * 1000;
 
-// Schedule the update function to run daily (e.g., every 24 hours)
-setInterval(updateExpiredPosts, 24 * 60 * 60 * 1000);
+function scheduleExpiredPostUpdates() {
+  const now = Date.now();
+  const thailandNow = now + THAILAND_OFFSET_MS;
+  const nextHourThailand = Math.ceil(thailandNow / HOUR_IN_MS) * HOUR_IN_MS;
+  const delay = nextHourThailand - thailandNow || HOUR_IN_MS;
+
+  const runAndReschedule = async () => {
+    await updateExpiredPosts();
+    setInterval(updateExpiredPosts, HOUR_IN_MS);
+  };
+
+  setTimeout(runAndReschedule, delay);
+}
+
+// Run the update function once on startup, then align future runs to every hour in Thailand time.
+updateExpiredPosts();
+scheduleExpiredPostUpdates();
 
 ///////NOTI///////////
 app.get("/api/notifications/:student_id", async (req, res) => {

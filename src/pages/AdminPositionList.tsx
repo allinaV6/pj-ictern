@@ -1,12 +1,20 @@
 import AdminLayout from '../components/AdminLayout';
-import { useState, useEffect } from 'react';
-import { Search, MoreHorizontal, Plus, ChevronDown, ChevronLeft, ChevronRight, Trash2, Edit } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import type { ChangeEvent } from 'react';
+import { Search, MoreHorizontal, Plus, ChevronDown, ChevronLeft, ChevronRight, Trash2, Edit, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
 
 interface Position {
   position_id: number;
   position_name: string;
+  position_description?: string;
+  position_skill?: string;
+}
+
+interface PositionDetail extends Position {
+  questions?: Array<{ quiz_question: string }>;
 }
 
 export default function AdminPositionList() {
@@ -16,6 +24,8 @@ export default function AdminPositionList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [importExportOpen, setImportExportOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -46,6 +56,104 @@ export default function AdminPositionList() {
     }
   };
 
+  const parseNumber = (value: any, fallback = 0) => {
+    if (typeof value === 'number') return value;
+    if (value === undefined || value === null || value === '') return fallback;
+    const parsed = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+
+  const handleExportPositions = async () => {
+    if (filteredPositions.length === 0) {
+      alert('ไม่มีข้อมูลให้ส่งออก');
+      return;
+    }
+
+    try {
+      const detailedPositions: PositionDetail[] = await Promise.all(
+        filteredPositions.map(async (position) => {
+          const response = await axios.get(`http://localhost:5000/api/admin/positions/${position.position_id}`);
+          return response.data;
+        })
+      );
+
+      const exportRows = detailedPositions.map((position) => {
+        const questions = Array.isArray(position.questions) ? position.questions : [];
+        return {
+          'Position ID': position.position_id,
+          'Position Name': position.position_name,
+          'Description': position.position_description || '',
+          'Skill Guide': position.position_skill || '',
+          'Question 1': questions[0]?.quiz_question || '',
+          'Question 2': questions[1]?.quiz_question || '',
+          'Question 3': questions[2]?.quiz_question || '',
+          'Question 4': questions[3]?.quiz_question || '',
+          'Question 5': questions[4]?.quiz_question || '',
+        };
+      });
+
+      exportDataToExcel(exportRows, 'Positions', [
+        { header: 'Position ID', key: 'Position ID' },
+        { header: 'Position Name', key: 'Position Name' },
+        { header: 'Description', key: 'Description' },
+        { header: 'Skill Guide', key: 'Skill Guide' },
+        { header: 'Question 1', key: 'Question 1' },
+        { header: 'Question 2', key: 'Question 2' },
+        { header: 'Question 3', key: 'Question 3' },
+        { header: 'Question 4', key: 'Question 4' },
+        { header: 'Question 5', key: 'Question 5' },
+      ]);
+    } catch (error) {
+      console.error('Error exporting positions:', error);
+      alert('ไม่สามารถส่งออกข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+    }
+  };
+
+  const handleImportPositions = async (file: File) => {
+    try {
+      const rows = await parseExcelFile(file);
+      const imported = rows.map((row) => ({
+        position_id: parseNumber(row['Position ID']),
+        position_name: String(row['Position Name'] || row['position_name'] || ''),
+        position_description: String(row['Description'] || row['position_description'] || ''),
+        position_skill: String(row['Skill Guide'] || row['position_skill'] || ''),
+        questions: [
+          String(row['Question 1'] || row['question1'] || row['Question1'] || '').trim(),
+          String(row['Question 2'] || row['question2'] || row['Question2'] || '').trim(),
+          String(row['Question 3'] || row['question3'] || row['Question3'] || '').trim(),
+          String(row['Question 4'] || row['question4'] || row['Question4'] || '').trim(),
+          String(row['Question 5'] || row['question5'] || row['Question5'] || '').trim(),
+        ],
+      }));
+
+      await axios.post('http://localhost:5000/api/admin/positions/import', imported);
+      await fetchPositions();
+      setCurrentPage(1);
+      setImportExportOpen(false);
+      alert('นำเข้าข้อมูลสำเร็จ และอัปเดตลงฐานข้อมูลเรียบร้อยแล้ว');
+    } catch (error) {
+      console.error('Error importing positions:', error);
+      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
+    }
+  };
+
+  const onPositionFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedExtensions = ['xlsx', 'xls', 'csv'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      alert('ไฟล์ไม่ถูกต้อง');
+      e.target.value = '';
+      return;
+    }
+
+    await handleImportPositions(file);
+    e.target.value = '';
+  };
+
   const filteredPositions = positions.filter(p => 
     p.position_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -71,9 +179,15 @@ export default function AdminPositionList() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <div className="relative max-w-md">
+      <div
+        className="max-w-6xl mx-auto px-4 py-8"
+        onClick={() => {
+          setOpenMenuId(null);
+          setImportExportOpen(false);
+        }}
+      >
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="relative max-w-md flex-1">
             <input
               type="text"
               placeholder="ค้นหาตำแหน่ง"
@@ -83,11 +197,58 @@ export default function AdminPositionList() {
             />
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
+
+          <div className="flex items-center gap-3 relative">
+            <div className="relative">
+              <button
+                className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2.5 rounded-lg font-semibold text-base hover:bg-gray-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImportExportOpen((prev) => !prev);
+                }}
+              >
+                <Download size={18} />
+                Import/Export
+              </button>
+              {importExportOpen && (
+                <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg z-20">
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    Import from Excel
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExportPositions();
+                      setImportExportOpen(false);
+                    }}
+                  >
+                    Export to Excel
+                  </button>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={onPositionFileChange}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">
-          <div className="px-6 py-3 text-sm font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
-            ชื่อตำแหน่ง
+          <div className="grid grid-cols-[1.4fr_2.6fr_56px] px-6 py-3 text-sm font-semibold text-gray-500 bg-gray-50 border-b border-gray-200 gap-4">
+            <div>ชื่อตำแหน่ง</div>
+            <div>คำอธิบายตำแหน่งงาน</div>
+            <div></div>
           </div>
 
           {loading ? (
@@ -96,13 +257,17 @@ export default function AdminPositionList() {
             currentItems.map((position) => (
               <div
                 key={position.position_id}
-                className="flex items-center justify-between px-6 py-4 text-base text-gray-800 border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors duration-150 relative group"
+                className="grid grid-cols-[1.4fr_2.6fr_56px] items-center px-6 py-4 text-base text-gray-800 border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors duration-150 relative group gap-4"
               >
-                <span className="font-medium cursor-pointer flex-grow" onClick={() => navigate(`/admin/positions/${position.position_id}`)}>
+                <span className="font-medium cursor-pointer min-w-0 truncate" onClick={() => navigate(`/admin/positions/${position.position_id}`)} title={position.position_name}>
                   {position.position_name}
                 </span>
+
+                <span className="text-gray-500 text-sm min-w-0 truncate" title={position.position_description || ''}>
+                  {position.position_description || '-'}
+                </span>
                 
-                <div className="relative">
+                <div className="relative justify-self-end">
                   <button
                     className="p-2 rounded-full hover:bg-gray-200 transition-colors"
                     onClick={(e) => {

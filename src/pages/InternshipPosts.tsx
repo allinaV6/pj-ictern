@@ -40,7 +40,24 @@ const renderCompensation = (value: string | number | undefined | null): string =
 
 const formatDateOnly = (dateString: string | undefined): string => {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('th-TH');
+  const text = String(dateString).trim();
+  if (!text || text === '0000-00-00') return '-';
+
+  const parts = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (parts) {
+    const day = Number(parts[1]);
+    const month = Number(parts[2]);
+    let year = Number(parts[3]);
+    if (year > 2400) year -= 543;
+    const parsed = new Date(year, month - 1, day);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('th-TH');
+    }
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('th-TH');
 };
 
 function InternshipPosts() {
@@ -340,7 +357,7 @@ const toggleFavorite = async (postId: number) => {
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-500">
                     <Calendar size={16} className="text-gray-400" />
-                    วันที่ปิดรับสมัคร: {new Date(post.internship_expired_date).toLocaleDateString('th-TH')}
+                    วันที่ปิดรับสมัคร: {formatDateOnly(post.internship_expired_date)}
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <FileText size={16} className="text-gray-400" />

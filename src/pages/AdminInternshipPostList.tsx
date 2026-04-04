@@ -134,13 +134,14 @@ export default function AdminInternshipPostList() {
         company_name: String(row['Company Name'] || ''),
       }));
 
-      setPosts(imported);
+      await axios.post('http://localhost:5000/api/posts/import', imported);
+      await fetchPosts();
       setPage(1);
       setImportExportOpen(false);
-      alert('นำเข้าไฟล์เรียบร้อยแล้ว ข้อมูลตารางจะถูกแทนที่ด้วยข้อมูลจากไฟล์ Excel');
+      alert('นำเข้าข้อมูลสำเร็จ และอัปเดตลงฐานข้อมูลเรียบร้อยแล้ว');
     } catch (error) {
       console.error('Error importing posts:', error);
-      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์ Excel');
+      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
     }
   };
 

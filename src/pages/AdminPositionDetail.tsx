@@ -8,6 +8,7 @@ export default function AdminPositionDetail() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     position_name: '',
     position_description: '',
@@ -86,6 +87,25 @@ export default function AdminPositionDetail() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+
+    const confirmed = window.confirm('คุณต้องการลบตำแหน่งงานนี้ใช่หรือไม่? (คำถามที่เกี่ยวข้องจะถูกลบไปด้วย)');
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      await axios.delete(`http://localhost:5000/api/admin/positions/${id}`);
+      alert('ลบข้อมูลสำเร็จ');
+      navigate('/admin/positions');
+    } catch (error) {
+      console.error('Error deleting position:', error);
+      alert('ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -106,6 +126,13 @@ export default function AdminPositionDetail() {
               disabled={saving}
             >
               ยกเลิก
+            </button>
+            <button
+              className="px-6 py-2.5 rounded-lg border border-red-200 bg-red-50 text-red-600 font-semibold text-base hover:bg-red-100 transition-colors disabled:opacity-50"
+              onClick={handleDelete}
+              disabled={saving || deleting}
+            >
+              {deleting ? 'กำลังลบ...' : 'ลบตำแหน่ง'}
             </button>
             <button 
               className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 disabled:opacity-50 transition-colors"

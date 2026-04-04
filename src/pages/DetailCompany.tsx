@@ -43,6 +43,29 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
+const formatThaiDate = (value: string | undefined | null): string => {
+  if (!value) return '-';
+  const text = String(value).trim();
+  if (!text || text === '0000-00-00') return '-';
+
+  // Handle dd/mm/yyyy or dd-mm-yyyy, including Buddhist year.
+  const parts = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (parts) {
+    const day = Number(parts[1]);
+    const month = Number(parts[2]);
+    let year = Number(parts[3]);
+    if (year > 2400) year -= 543;
+    const parsed = new Date(year, month - 1, day);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('th-TH');
+    }
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('th-TH');
+};
+
 export default function DetailCompany() {
   const { id } = useParams();
   const toLogoUrl = (value: string) => {
@@ -232,9 +255,9 @@ export default function DetailCompany() {
                       <span className="text-gray-300 ml-1">|</span>
                       <span>ระยะเวลา: {job.internship_duration} เดือน</span>
                       <span className="text-gray-300">|</span>
-                      <span>ประกาศเมื่อ: {new Date(job.internship_create_date).toLocaleDateString('th-TH')}</span>
+                      <span>ประกาศเมื่อ: {formatThaiDate(job.internship_create_date)}</span>
                       <span className="text-gray-300">|</span>
-                      <span className="text-red-600 font-medium">ปิดรับสมัคร: {new Date(job.internship_expired_date).toLocaleDateString('th-TH')}</span>
+                      <span className="text-red-600 font-medium">ปิดรับสมัคร: {formatThaiDate(job.internship_expired_date)}</span>
                     </div>
                   </div>
                   <button
@@ -333,7 +356,7 @@ export default function DetailCompany() {
 
                   {/* DATE */}
                   <p className="text-xs text-gray-400">
-                    {new Date(review.created_at).toLocaleDateString('th-TH')}
+                    {formatThaiDate(review.created_at)}
                   </p>
 
                 </div>
@@ -438,7 +461,7 @@ export default function DetailCompany() {
                   {selectedReview.comment}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {new Date(selectedReview.created_at).toLocaleDateString('th-TH')}
+                  {formatThaiDate(selectedReview.created_at)}
                 </p>
               </div>
             </div>
