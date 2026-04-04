@@ -22,6 +22,30 @@ export default function Setting() {
     setUser(parsedUser);
   }, []);
 
+  // 🔥 โหลดสถานะการแจ้งเตือนจาก localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("notificationsEnabled");
+    if (saved !== null) {
+      setNotificationsEnabled(JSON.parse(saved));
+    }
+  }, []);
+
+  // 🔥 เซฟสถานะเมื่อเปลี่ยน
+  const handleNotificationChange = () => {
+    const newState = !notificationsEnabled;
+    setNotificationsEnabled(newState);
+    localStorage.setItem("notificationsEnabled", JSON.stringify(newState));
+  };
+
+  // 🔥 Map major abbreviation เป็นชื่อเต็ม
+  const getMajorFullName = (major: string): string => {
+    const majorMap: { [key: string]: string } = {
+      'ICT': 'Information and Communication Technology(ICT)',
+      'DST': 'Digital Science and Technology(DST)'
+    };
+    return majorMap[major?.toUpperCase()] || major || '-';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans relative">
       <Navbar />
@@ -50,16 +74,13 @@ export default function Setting() {
               <p className="text-gray-700 uppercase text-base">
                 {user?.student_name || "-"}
               </p>
-              <p className="text-gray-600 text-base">
-                {user?.student_name || "-"}
-              </p>
             </div>
 
             {/* Program */}
             <div className="mb-8">
               <h2 className="text-blue-900 font-bold mb-1 text-lg">Program</h2>
               <p className="text-gray-700 text-base">
-                {user?.student_major || "-"}
+                {getMajorFullName(user?.student_major)}
               </p>
             </div>
 
@@ -71,7 +92,7 @@ export default function Setting() {
 
               <div
                 className="flex items-center gap-3 cursor-pointer select-none"
-                onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                onClick={handleNotificationChange}
               >
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                   notificationsEnabled

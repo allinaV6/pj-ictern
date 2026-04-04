@@ -1655,6 +1655,12 @@ setInterval(updateExpiredPosts, 24 * 60 * 60 * 1000);
 app.get("/api/notifications/:student_id", async (req, res) => {
   try {
     const { student_id } = req.params;
+    const notificationsEnabled = req.query.enabled === 'true';
+
+    // ❌ ถ้าปิดการแจ้งเตือน ให้ return array ว่าง
+    if (!notificationsEnabled) {
+      return res.json([]);
+    }
 
     const [rows] = await db.query(`
       SELECT 

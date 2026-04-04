@@ -34,7 +34,8 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
     if (!studentId) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/notifications/${studentId}`);
+      const notificationsEnabled = localStorage.getItem("notificationsEnabled") === 'true';
+      const res = await fetch(`http://localhost:5000/api/notifications/${studentId}?enabled=${notificationsEnabled}`);
       const data = await res.json();
       setNotifications(data);
     } catch (err) {

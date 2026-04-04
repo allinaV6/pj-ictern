@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface InternshipPostType {
   post_id: number;
@@ -38,6 +38,11 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
+const formatDateOnly = (dateString: string | undefined): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('th-TH');
+};
+
 function InternshipPosts() {
   const [posts, setPosts] = useState<InternshipPostType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +59,15 @@ function InternshipPosts() {
   const [selectedEmail, setSelectedEmail] = useState<string>("");
   const navigate = useNavigate();
   const [sortType, setSortType] = useState("");
+  const [searchParams] = useSearchParams();
+
+  // 🔥 อ่าน search parameter จาก URL
+  useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    if (searchQuery) {
+      setSearchTerm(searchQuery);
+    }
+  }, [searchParams]);
 
  useEffect(() => {
     console.log("Fetching posts from http://localhost:5000/api/posts...");
@@ -423,7 +437,11 @@ const toggleFavorite = async (postId: number) => {
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <Calendar size={16} />
-                        ประกาศเมื่อ: {selectedPost.internship_expired_date}
+                        วันเปิดรับสมัคร: {formatDateOnly(selectedPost.internship_create_date)}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                        <Calendar size={16} />
+                        วันปิดรับสมัคร: {formatDateOnly(selectedPost.internship_expired_date)}
                       </div>
                       {selectedPost.internship_poster && (
                         <button 

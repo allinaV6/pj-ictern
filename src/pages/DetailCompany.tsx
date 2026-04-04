@@ -61,6 +61,8 @@ export default function DetailCompany() {
   const [error, setError] = useState("");
   const [avgRating, setAvgRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
+  const [selectedReview, setSelectedReview] = useState<any | null>(null);
+  const [isReviewDetailModalOpen, setIsReviewDetailModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -304,11 +306,23 @@ export default function DetailCompany() {
                   {/* HEADER */}
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-blue-900">
-                      {review.reviewer_name || "Anonymous"}
+                      Anonymous
                     </h3>
 
-                    <div className="text-yellow-500 font-bold flex items-center gap-1">
-                      ⭐ {review.rating}
+                    <div className="text-yellow-500 font-bold flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        ⭐ {review.rating}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedReview(review);
+                          setIsReviewDetailModalOpen(true);
+                        }}
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition-colors"
+                        title="ดูรายละเอียด"
+                      >
+                        <Info size={16} />
+                      </button>
                     </div>
                   </div>
 
@@ -316,13 +330,6 @@ export default function DetailCompany() {
                   <p className="text-gray-700 mb-3 leading-relaxed">
                     {review.comment}
                   </p>
-
-                  {/* DETAIL RATING (optional เท่ขึ้น) */}
-                  <div className="text-sm text-gray-500 flex gap-4 mb-2">
-                    <span>Work: {review.review_work_rating}</span>
-                    <span>Life: {review.review_life_rating}</span>
-                    <span>Social: {review.review_commu_rating}</span>
-                  </div>
 
                   {/* DATE */}
                   <p className="text-xs text-gray-400">
@@ -339,6 +346,105 @@ export default function DetailCompany() {
           </div>
         </div>
       </div>
+
+      {/* Review Detail Modal */}
+      {isReviewDetailModalOpen && selectedReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsReviewDetailModalOpen(false)}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+            {/* Close Button */}
+            <button 
+              onClick={() => setIsReviewDetailModalOpen(false)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10 p-2 hover:bg-gray-100 rounded-full transition-all"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="p-8">
+              {/* Header */}
+              <h2 className="text-2xl font-bold text-blue-900 mb-6 text-center">
+                Anonymous
+              </h2>
+
+              {/* Overall Rating */}
+              <div className="text-center mb-8">
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  {Array(Math.round(selectedReview.rating))
+                    .fill(0)
+                    .map((_, i) => (
+                      <Star key={i} size={24} fill="currentColor" className="text-yellow-500" />
+                    ))}
+                </div>
+                <p className="text-gray-600 font-semibold">{selectedReview.rating}/5</p>
+              </div>
+
+              {/* Work Life Social Ratings */}
+              <div className="space-y-6">
+                {/* Work */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-gray-700 font-semibold">Work</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {Array(Math.round(selectedReview.review_work_rating))
+                      .fill(0)
+                      .map((_, i) => (
+                        <Star key={i} size={20} fill="currentColor" className="text-yellow-500" />
+                      ))}
+                    <span className="text-gray-600 ml-2">{selectedReview.review_work_rating}/5</span>
+                  </div>
+                </div>
+
+                {/* Life */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-gray-700 font-semibold">Life</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {Array(Math.round(selectedReview.review_life_rating))
+                      .fill(0)
+                      .map((_, i) => (
+                        <Star key={i} size={20} fill="currentColor" className="text-yellow-500" />
+                      ))}
+                    <span className="text-gray-600 ml-2">{selectedReview.review_life_rating}/5</span>
+                  </div>
+                </div>
+
+                {/* Social */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-gray-700 font-semibold">Social</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {Array(Math.round(selectedReview.review_commu_rating))
+                      .fill(0)
+                      .map((_, i) => (
+                        <Star key={i} size={20} fill="currentColor" className="text-yellow-500" />
+                      ))}
+                    <span className="text-gray-600 ml-2">{selectedReview.review_commu_rating}/5</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comment */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <p className="text-gray-700 leading-relaxed mb-3">
+                  {selectedReview.comment}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {new Date(selectedReview.created_at).toLocaleDateString('th-TH')}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Detail Pop-up */}
       {isModalOpen && selectedJob && (
