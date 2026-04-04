@@ -86,6 +86,48 @@ app.post("/api/auth/firebase-login", async (req, res) => {
 });
 
 // ==================================================
+// GET ADMINS
+// ==================================================
+app.get("/api/admins", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT admin_id, admin_name, email FROM admin WHERE admin_status = 'active' ORDER BY admin_name`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
+// SEND NOTIFICATION
+// ==================================================
+app.post("/api/notifications/send", async (req, res) => {
+  try {
+    const { admin_id, user_id, user_name, message } = req.body;
+
+    if (!admin_id || !message) {
+      return res.status(400).json({ error: "missing data" });
+    }
+
+    // สร้างการแจ้งเตือนเก็บไว้ (ถ้ามีตาราง notification)
+    // ตอนนี้แค่ return success ลองเพิ่มตาราง notification ทีหลัง
+    
+    res.json({
+      message: "notification sent",
+      admin_id,
+      user_id,
+      user_name,
+      notification_message: message
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+// ==================================================
 // USERS (ADMIN)
 // ==================================================
 app.get("/api/users", async (req, res) => {

@@ -46,6 +46,11 @@ export default function Setting() {
     return majorMap[major?.toUpperCase()] || major || '-';
   };
 
+  // 🔥 ตรวจสอบว่าเป็น admin หรือ student
+  const isAdmin = !!user?.admin_id;
+  const userName = isAdmin ? user?.admin_name : user?.student_name;
+  const userProgram = isAdmin ? 'Admin' : getMajorFullName(user?.student_major);
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans relative">
       <Navbar />
@@ -72,7 +77,7 @@ export default function Setting() {
             <div className="mb-6">
               <h2 className="text-blue-900 font-bold mb-1 text-lg">Name</h2>
               <p className="text-gray-700 uppercase text-base">
-                {user?.student_name || "-"}
+                {userName || "-"}
               </p>
             </div>
 
@@ -80,7 +85,7 @@ export default function Setting() {
             <div className="mb-8">
               <h2 className="text-blue-900 font-bold mb-1 text-lg">Program</h2>
               <p className="text-gray-700 text-base">
-                {getMajorFullName(user?.student_major)}
+                {userProgram}
               </p>
             </div>
 
