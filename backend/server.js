@@ -19,7 +19,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "2546",
+  password: process.env.DB_PASSWORD || "123456",
   database: process.env.DB_NAME || "ictern",
   port: process.env.DB_PORT || 3306,
 });
@@ -1503,10 +1503,14 @@ app.get("/api/positions/by-ids", async (req, res) => {
 app.get("/api/favorites/:student_id", async (req, res) => {
   try {
     const { student_id } = req.params;
+
     const [rows] = await db.query(
-      "SELECT * FROM favorite WHERE student_id = ?",
+      `SELECT internship_posts_id AS post_id
+       FROM favorite
+       WHERE student_id = ?`,
       [student_id]
     );
+
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -1517,10 +1521,17 @@ app.get("/api/favorites/:student_id", async (req, res) => {
 app.post("/api/favorites", async (req, res) => {
   try {
     const { student_id, post_id } = req.body;
+
+    if (!student_id || !post_id) {
+      return res.status(400).json({ error: "missing data" });
+    }
+
     await db.query(
-      "INSERT INTO favorite (student_id, post_id) VALUES (?, ?)",
+      `INSERT IGNORE INTO favorite (student_id, internship_posts_id)
+       VALUES (?, ?)`,
       [student_id, post_id]
     );
+
     res.json({ message: "added" });
   } catch (err) {
     console.error(err);
@@ -1531,16 +1542,20 @@ app.post("/api/favorites", async (req, res) => {
 app.delete("/api/favorites", async (req, res) => {
   try {
     const { student_id, post_id } = req.body;
+
     await db.query(
-      "DELETE FROM favorite WHERE student_id = ? AND post_id = ?",
+      `DELETE FROM favorite
+       WHERE student_id = ? AND internship_posts_id = ?`,
       [student_id, post_id]
     );
+
     res.json({ message: "deleted" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "server error" });
   }
 });
+
 
 // ==================================================
 // CREATE/UPDATE/DELETE POSTS (ADMIN)
@@ -1675,6 +1690,53 @@ updateExpiredPosts();
 // Schedule the update function to run daily (e.g., every 24 hours)
 setInterval(updateExpiredPosts, 24 * 60 * 60 * 1000);
 
+///////NOTI///////////
+app.get("/api/notifications/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+    const notificationsEnabled = req.query.enabled === 'true';
+
+    // ❌ ถ้าปิดการแจ้งเตือน ให้ return array ว่าง
+    if (!notificationsEnabled) {
+      return res.json([]);
+    }
+
+    const [rows] = await db.query(`
+      SELECT 
+        i.internship_posts_id AS post_id,
+        i.internship_title,
+        i.internship_expired_date
+      FROM favorite f
+      JOIN internship_posts i 
+        ON f.internship_posts_id = i.internship_posts_id
+      WHERE f.student_id = ?
+    `, [student_id]);
+
+    const today = new Date();
+
+    const notifications = rows
+      .map(post => {
+        const expired = new Date(post.internship_expired_date);
+        const diffTime = expired.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 3 && diffDays >= 0) {
+          return {
+            ...post,
+            daysLeft: diffDays
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    res.json(notifications);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });

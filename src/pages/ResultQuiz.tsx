@@ -127,7 +127,7 @@ export default function ResultQuiz() {
                   style={{ height: `${item.percent * 2}px` }}
                 />
 
-                <div className="mt-3 text-center font-bold text-blue-900">
+                <div className="mt-3 text-center font-bold text-blue-900 w-24 break-words">
                   {item.name}
                 </div>
 
@@ -175,7 +175,10 @@ export default function ResultQuiz() {
           </button>
 
           <button
-            onClick={() => navigate('/posts')}
+            onClick={() => {
+              const topPositionName = results[0]?.name || '';
+              navigate(`/posts?search=${encodeURIComponent(topPositionName)}`);
+            }}
             className="px-6 py-3 bg-blue-900 text-white rounded-lg font-semibold hover:bg-blue-800 transition-colors"
           >
             ค้นหาสถานที่ฝึกงาน

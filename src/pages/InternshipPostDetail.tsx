@@ -38,6 +38,11 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
+const formatDateOnly = (dateString: string | undefined): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('th-TH');
+};
+
 function InternshipPostDetail() {
 
   const { id } = useParams();
@@ -129,11 +134,12 @@ function InternshipPostDetail() {
 
             <div className="flex items-center gap-2">
               <Calendar size={16}/>
-              ประกาศเมื่อ: {new Date(post.internship_create_date).toLocaleDateString('th-TH')}
+              วันเปิดรับสมัคร: {formatDateOnly(post.internship_create_date)}
             </div>
+
             <div className="flex items-center gap-2 text-red-600 font-medium">
               <Calendar size={16}/>
-              ปิดรับสมัคร: {new Date(post.internship_expired_date).toLocaleDateString('th-TH')}
+              วันปิดรับสมัคร: {formatDateOnly(post.internship_expired_date)}
             </div>
 
           </div>

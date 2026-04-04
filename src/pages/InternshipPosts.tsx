@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface InternshipPostType {
   post_id: number;
@@ -38,6 +38,11 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
+const formatDateOnly = (dateString: string | undefined): string => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('th-TH');
+};
+
 function InternshipPosts() {
   const [posts, setPosts] = useState<InternshipPostType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,8 +59,17 @@ function InternshipPosts() {
   const [selectedEmail, setSelectedEmail] = useState<string>("");
   const navigate = useNavigate();
   const [sortType, setSortType] = useState("");
+  const [searchParams] = useSearchParams();
 
+  // 🔥 อ่าน search parameter จาก URL
   useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    if (searchQuery) {
+      setSearchTerm(searchQuery);
+    }
+  }, [searchParams]);
+
+ useEffect(() => {
     console.log("Fetching posts from http://localhost:5000/api/posts...");
     fetch("http://localhost:5000/api/posts")
       .then((res) => {
@@ -65,20 +79,16 @@ function InternshipPosts() {
         }
         return res.json();
       })
-.then((data) => {
-  console.log("Fetched data:", data); // ✅ อันเดิม
-
-  if (Array.isArray(data)) {
-    setPosts(data);
-
-    console.log("🔥 POSTS AFTER SET:", data); // 👈 เพิ่มตรงนี้
-  } else {
-    console.warn("Fetched data is not an array:", data);
-    setPosts([]);
-  }
-
-  setLoading(false);
-})
+      .then((data) => {
+        console.log("Fetched data:", data);
+        if (Array.isArray(data)) {
+          setPosts(data);
+        } else {
+          console.warn("Fetched data is not an array:", data);
+          setPosts([]);
+        }
+        setLoading(false);
+      })
       .catch((err) => {
         console.error("Fetch failed:", err);
         setError("ไม่สามารถโหลดข้อมูลได้: " + err.message);
@@ -86,51 +96,58 @@ function InternshipPosts() {
       });
   }, []);
 
-  useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-    const studentId = user?.student_id;
+// 🔥 function โหลด favorite
+const loadFavorites = async () => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const studentId = user?.student_id;
 
-    if (!studentId) return;
+  if (!studentId) {
+    setFavoriteIds([]); // กันค่าค้าง
+    return;
+  }
 
-    fetch(`http://localhost:5000/api/favorites/${studentId}`)
-      .then(res => res.json())
-      .then(data => {
-        const ids = data.map((f: any) => f.post_id);
-        setFavoriteIds(ids);
-      });
-  }, []);
+  const res = await fetch(`http://localhost:5000/api/favorites/${studentId}`);
+  const data = await res.json();
 
-  const toggleFavorite = async (postId: number) => {
-    const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-    const studentId = user?.student_id;
+  const ids = data.map((f: any) => f.post_id);
+  setFavoriteIds(ids);
+};
 
-    if (!studentId) {
-      alert("กรุณาเข้าสู่ระบบก่อน");
-      return;
-    }
+// 🔥 useEffect
+useEffect(() => {
+  loadFavorites();
+}, []);
 
-    const isFav = favoriteIds.includes(postId);
+// 🔥 toggle favorite
+const toggleFavorite = async (postId: number) => {
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const studentId = user?.student_id;
 
-    if (isFav) {
-      await fetch("http://localhost:5000/api/favorites", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_id: studentId, post_id: postId })
-      });
+  if (!studentId) {
+    alert("กรุณาเข้าสู่ระบบก่อน");
+    return;
+  }
 
-      setFavoriteIds(prev => prev.filter(id => id !== postId));
-    } else {
-      await fetch("http://localhost:5000/api/favorites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_id: studentId, post_id: postId })
-      });
+  const isFav = favoriteIds.includes(postId);
 
-      setFavoriteIds(prev => [...prev, postId]);
-    }
-  };
+  if (isFav) {
+    await fetch("http://localhost:5000/api/favorites", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, post_id: postId })
+    });
+  } else {
+    await fetch("http://localhost:5000/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, post_id: postId })
+    });
+  }
+
+  await loadFavorites(); // 🔥 สำคัญมาก (sync DB จริง)
+};
 
   const filteredPosts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -420,7 +437,11 @@ function InternshipPosts() {
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <Calendar size={16} />
-                        ประกาศเมื่อ: {selectedPost.internship_expired_date}
+                        วันเปิดรับสมัคร: {formatDateOnly(selectedPost.internship_create_date)}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                        <Calendar size={16} />
+                        วันปิดรับสมัคร: {formatDateOnly(selectedPost.internship_expired_date)}
                       </div>
                       {selectedPost.internship_poster && (
                         <button 
