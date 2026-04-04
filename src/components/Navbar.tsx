@@ -19,6 +19,9 @@ const formatDateOnly = (dateString: string | undefined): string => {
   return new Date(dateString).toLocaleDateString('th-TH');
 };
 
+const getNotificationPreferenceKey = (userType: 'student' | 'admin', userId: number | string) =>
+  `notificationsEnabled:${userType}:${userId}`;
+
 export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -35,10 +38,11 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
   
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const roleStr = localStorage.getItem("role") || user?.role || "";
+  const fallbackRoleStr = user?.role || (user?.student_id ? 'student' : 'admin');
+  const roleStr = localStorage.getItem("role") || fallbackRoleStr || "";
   const normalizedUserRole = String(roleStr).trim().toLowerCase();
-
-  const isAdminRole = normalizedUserRole.includes("admin");
+  const inferredAdminById = Boolean(user?.admin_id) && !Boolean(user?.student_id);
+  const isAdminRole = normalizedUserRole.includes("admin") || inferredAdminById || String(fallbackRoleStr).toLowerCase().includes('admin');
 
   const getAdminDefaultRoute = () => {
     return isAdminRole ? "/admin/dashboard" : "/posts";
@@ -59,7 +63,9 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
     ].join(' ');
 
   const loadNotifications = async () => {
-    if (isAdminRole) {
+    const useAdminNotifications = isAdminRole && isOnAdminSite;
+
+    if (useAdminNotifications) {
       // Admin: โหลดประกาศที่ใกล้หมดอายุ
       try {
         const res = await fetch(`http://localhost:5000/api/admin/notifications`);
@@ -69,13 +75,28 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
         console.error("โหลด admin notification ไม่สำเร็จ", err);
       }
     } else {
-      // Student: โหลด favorite ที่ใกล้หมดอายุ
-      const studentId = user?.student_id;
-      if (!studentId) return;
+      // User site: โหลด favorite ที่ใกล้หมดอายุ (รองรับทั้ง student/admin)
+      const userId = user?.student_id || user?.admin_id || user?.user_id;
+      const userType = String(fallbackRoleStr).toLowerCase().includes('admin') ? 'admin' : 'student';
+      if (!userId) return;
+
+      const scopedKey = getNotificationPreferenceKey(userType, userId);
+      const scopedSetting = localStorage.getItem(scopedKey);
+      const legacySetting = localStorage.getItem("notificationsEnabled");
+      const effectiveSetting = scopedSetting ?? legacySetting;
+      const notificationsEnabled = effectiveSetting === null ? true : effectiveSetting === 'true';
+
+      if (scopedSetting === null) {
+        localStorage.setItem(scopedKey, JSON.stringify(notificationsEnabled));
+      }
+
+      if (!notificationsEnabled) {
+        setNotifications([]);
+        return;
+      }
 
       try {
-        const notificationsEnabled = localStorage.getItem("notificationsEnabled") === 'true';
-        const res = await fetch(`http://localhost:5000/api/notifications/${studentId}?enabled=${notificationsEnabled}`);
+        const res = await fetch(`http://localhost:5000/api/notifications/${userId}?enabled=${notificationsEnabled}&user_type=${userType}`);
         const data = await res.json();
         setNotifications(data);
       } catch (err) {
@@ -88,6 +109,19 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
   useEffect(() => {
     loadNotifications();
   }, []);
+
+  useEffect(() => {
+    const refreshNotifications = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener("notificationsEnabledChanged", refreshNotifications);
+    window.addEventListener("favoritesChanged", refreshNotifications);
+    return () => {
+      window.removeEventListener("notificationsEnabledChanged", refreshNotifications);
+      window.removeEventListener("favoritesChanged", refreshNotifications);
+    };
+  }, [user?.student_id, user?.admin_id, user?.user_id, isAdminRole]);
 
   // 🔥 โหลด post detail เมื่อเลือก
   useEffect(() => {
@@ -161,7 +195,10 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
           {/* 🔔 Notification */}
           <div className="relative">
               <button 
-              className="p-1.5 hover:bg-gray-100 rounded-full relative"
+              className={`p-1.5 rounded-full relative transition-colors ${
+                showNotif ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+              }`}
+              aria-pressed={showNotif}
               onClick={() => {
                 setIsDropdownOpen(false);
                 loadNotifications();
@@ -186,7 +223,13 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
                 {notifications.length === 0 ? (
                   <p className="text-gray-500 text-sm">ไม่มีแจ้งเตือน</p>
                 ) : (
-                  notifications.map((n, index) => (
+                  [...notifications]
+                    .sort((a, b) => {
+                      const dayDiff = Number(a.daysLeft ?? 999) - Number(b.daysLeft ?? 999);
+                      if (dayDiff !== 0) return dayDiff;
+                      return new Date(a.internship_expired_date).getTime() - new Date(b.internship_expired_date).getTime();
+                    })
+                    .map((n, index) => (
                     <div 
                       key={index} 
                       className="mb-2 p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"

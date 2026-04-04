@@ -60,6 +60,24 @@ const formatDateOnly = (dateString: string | undefined): string => {
   return parsed.toLocaleDateString('th-TH');
 };
 
+const getDaysLeft = (dateString: string | undefined): number | null => {
+  if (!dateString) return null;
+  const parsed = new Date(String(dateString));
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const today = new Date();
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const targetOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  return Math.ceil((targetOnly.getTime() - todayOnly.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const getExpireTextColor = (daysLeft: number | null): string => {
+  if (daysLeft === null) return 'text-gray-500';
+  if (daysLeft >= 1 && daysLeft <= 3) return 'text-red-500';
+  if (daysLeft >= 4 && daysLeft <= 5) return 'text-orange-500';
+  return 'text-gray-500';
+};
+
 function InternshipPosts() {
   const [posts, setPosts] = useState<InternshipPostType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,6 +188,7 @@ const toggleFavorite = async (postId: number) => {
   }
 
   await loadFavorites(); // 🔥 สำคัญมาก (sync DB จริง)
+  window.dispatchEvent(new Event("favoritesChanged"));
 };
 
   const filteredPosts = useMemo(() => {
@@ -193,29 +212,69 @@ const toggleFavorite = async (postId: number) => {
         return favoriteIds.includes(post.post_id);
       });
 
+    const compareStatusFirst = (a: InternshipPostType, b: InternshipPostType) => {
+      const statusDiff = Number(b.internship_status ?? 1) - Number(a.internship_status ?? 1);
+      if (statusDiff !== 0) return statusDiff;
+      return 0;
+    };
+
     // 🔥 SORT
     if (sortType === "compensation") {
       result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
         Number(b.internship_compensation) - Number(a.internship_compensation)
+      );
+    }
+
+    if (sortType === "compensation_asc") {
+      result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
+        Number(a.internship_compensation) - Number(b.internship_compensation)
       );
     }
 
     if (sortType === "duration") {
       result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
         Number(b.internship_duration) - Number(a.internship_duration)
       );
     }
 
-    if (sortType === "date") {
-      result.sort(
-        (a, b) =>
-          new Date(b.internship_expired_date).getTime() -
-          new Date(a.internship_expired_date).getTime()
+    if (sortType === "duration_asc") {
+      result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
+        Number(a.internship_duration) - Number(b.internship_duration)
       );
     }
 
     if (sortType === "rating") {
-      result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
+        ((b.rating || 0) - (a.rating || 0))
+      );
+    }
+
+    if (sortType === "rating_asc") {
+      result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
+        ((a.rating || 0) - (b.rating || 0))
+      );
+    }
+
+    if (sortType === "nearest_expiry") {
+      result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
+        new Date(a.internship_expired_date).getTime() -
+        new Date(b.internship_expired_date).getTime()
+      );
+    }
+
+    if (!sortType) {
+      result.sort((a, b) =>
+        compareStatusFirst(a, b) ||
+        new Date(b.internship_create_date || 0).getTime() -
+        new Date(a.internship_create_date || 0).getTime()
+      );
     }
 
     return result;
@@ -263,10 +322,13 @@ const toggleFavorite = async (postId: number) => {
               className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700"
             >
               <option value="">เรียงตาม</option>
-              <option value="compensation">เงินมากสุด</option>
-              <option value="duration">ระยะเวลามากสุด</option>
-              <option value="rating">rating สูงสุด</option>
-              <option value="date">ล่าสุด</option>
+              <option value="compensation">ค่าตอบแทนสูงสุด</option>
+              <option value="compensation_asc">ค่าตอบแทนต่ำสุด</option>
+              <option value="duration">ระยะเวลานานที่สุด</option>
+              <option value="duration_asc">ระยะเวลาสั้นที่สุด</option>
+              <option value="rating">คะแนนรีวิวสูงสุด</option>
+              <option value="rating_asc">คะแนนรีวิวต่ำสุด</option>
+              <option value="nearest_expiry">ใกล้ปิดรับสมัครที่สุด</option>
             </select>
 
             {/* ❤️ favorite */}
@@ -275,7 +337,7 @@ const toggleFavorite = async (postId: number) => {
               className={`px-5 py-2.5 border rounded-lg flex items-center gap-2 ${showFavoritesOnly ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white text-gray-700 border-gray-300'}`}
             >
               <Heart size={18} fill={showFavoritesOnly ? "currentColor" : "none"} />
-              รายการโปรด
+              รายการที่บันทึกไว้
             </button>
 
           </div>
@@ -294,6 +356,8 @@ const toggleFavorite = async (postId: number) => {
             const isFavorite = favoriteIds.includes(post.post_id);
             const statusValue = Number(post.internship_status ?? 1);
             const isOpen = statusValue === 1;
+            const daysLeft = getDaysLeft(post.internship_expired_date);
+            const expireTextColorClass = getExpireTextColor(daysLeft);
 
             return (
               <div
@@ -361,9 +425,9 @@ const toggleFavorite = async (postId: number) => {
                       {renderCompensation(post.internship_compensation)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[15px] text-gray-500">
+                  <div className={`flex items-center gap-2 text-[15px] ${expireTextColorClass}`}>
                     <Calendar size={16} className="text-gray-400" />
-                    วันที่ปิดรับสมัคร: {formatDateOnly(post.internship_expired_date)}
+                    วันที่ปิดรับสมัคร {formatDateOnly(post.internship_expired_date)}
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-600">
                     <FileText size={16} className="text-gray-400" />
@@ -460,11 +524,11 @@ const toggleFavorite = async (postId: number) => {
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <Calendar size={16} />
-                        วันเปิดรับสมัคร: {formatDateOnly(selectedPost.internship_create_date)}
+                        วันที่เปิดรับสมัคร: {formatDateOnly(selectedPost.internship_create_date)}
                       </div>
                       <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
                         <Calendar size={16} />
-                        วันปิดรับสมัคร: {formatDateOnly(selectedPost.internship_expired_date)}
+                        วันที่ปิดรับสมัคร: {formatDateOnly(selectedPost.internship_expired_date)}
                       </div>
                       {selectedPost.internship_poster && (
                         <button 
@@ -529,6 +593,10 @@ const toggleFavorite = async (postId: number) => {
 
             {/* Footer Actions */}
             <div className="p-8 pt-4 flex justify-center gap-4">
+              {(() => {
+                const isOpen = (selectedPost.internship_status ?? 1) === 1;
+                return (
+                  <>
               <button 
                 onClick={() => {
                   setIsModalOpen(false);
@@ -536,10 +604,11 @@ const toggleFavorite = async (postId: number) => {
                 }}
                 className="px-8 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
               >
-                ดูรายละเอียดบริษัท
+                ดูข้อมูลบริษัท
               </button>
               <button 
                 onClick={() => {
+                  if (!isOpen) return;
                   const applyType = selectedPost.internship_apply_type;
                   const applyLink = selectedPost.internship_link || '';
                   
@@ -552,13 +621,21 @@ const toggleFavorite = async (postId: number) => {
                     const finalLink = applyLink.startsWith('http') ? applyLink : `https://${applyLink}`;
                     window.open(finalLink, '_blank');
                   } else {
-                    alert('ไม่มีข้อมูลการสมัครงาน');
+                    alert('ไม่มีข้อมูลช่องทางการสมัครงาน');
                   }
                 }}
-                className="px-10 py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
+                disabled={!isOpen}
+                className={`px-10 py-3 text-white font-bold rounded-xl transition-colors shadow-sm ${
+                  isOpen
+                    ? 'bg-[#1a3a8a] hover:bg-blue-800'
+                    : 'bg-gray-400 cursor-not-allowed opacity-70'
+                }`}
               >
-                สมัครงาน
+                {isOpen ? 'สมัครงาน' : 'ปิดรับสมัคร'}
               </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -600,7 +677,7 @@ const toggleFavorite = async (postId: number) => {
             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Mail size={32} />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">ติดต่อสมัครงาน</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">ช่องทางการสมัครงาน</h3>
             <p className="text-gray-600 mb-6">
               กรุณาส่ง Resume หรือเอกสารประกอบการสมัครงานไปที่อีเมลด้านล่างนี้:
             </p>

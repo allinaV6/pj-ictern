@@ -2025,13 +2025,11 @@ app.post("/api/posts", async (req, res) => {
       ]
     );
 
-    res.json({ message: "Post created", post_id: result.insertId });
-
     if (internship_expired_date) {
-      updateExpiredPosts().catch((error) => {
-        console.error('❌ Error updating expired posts after create:', error);
-      });
+      await updateExpiredPosts();
     }
+
+    res.json({ message: "Post created", post_id: result.insertId });
   } catch (err) {
     console.error("❌ CREATE POST ERROR:", err);
     res.status(500).json({ message: "Database error", error: err.message });
@@ -2076,13 +2074,11 @@ app.put("/api/posts/:id", async (req, res) => {
       ]
     );
 
-    res.json({ message: "Post updated" });
-
     if (internship_expired_date) {
-      updateExpiredPosts().catch((error) => {
-        console.error('❌ Error updating expired posts after update:', error);
-      });
+      await updateExpiredPosts();
     }
+
+    res.json({ message: "Post updated" });
   } catch (err) {
     console.error("❌ UPDATE POST ERROR:", err);
     res.status(500).json({ message: "Database error", error: err.message });
@@ -2312,15 +2308,13 @@ app.post('/api/posts/import', async (req, res) => {
 
     await connection.commit();
 
+    await updateExpiredPosts();
+
     res.json({
       message: 'Posts imported',
       insertedCount,
       updatedCount,
       totalCount: insertedCount + updatedCount,
-    });
-
-    updateExpiredPosts().catch((error) => {
-      console.error('❌ Error updating expired posts after import:', error);
     });
   } catch (err) {
     await connection.rollback();
@@ -2358,7 +2352,9 @@ scheduleExpiredPostUpdates();
 app.get("/api/notifications/:student_id", async (req, res) => {
   try {
     const { student_id } = req.params;
+    const { user_type } = req.query;
     const notificationsEnabled = req.query.enabled === 'true';
+    const queryId = user_type === 'admin' ? -Math.abs(Number(student_id)) : Number(student_id);
 
     // ❌ ถ้าปิดการแจ้งเตือน ให้ return array ว่าง
     if (!notificationsEnabled) {
@@ -2375,7 +2371,7 @@ app.get("/api/notifications/:student_id", async (req, res) => {
         ON f.internship_posts_id = i.internship_posts_id
       WHERE f.student_id = ?
         AND i.internship_expired_date >= CURDATE()
-    `, [student_id]);
+    `, [queryId]);
 
     const today = new Date();
 
@@ -2414,7 +2410,7 @@ app.get("/api/admin/notifications", async (req, res) => {
         internship_title,
         internship_expired_date
       FROM internship_posts
-      WHERE internship_status = 'active'
+      WHERE internship_status = 1
         AND internship_expired_date >= CURDATE()
     `);
 

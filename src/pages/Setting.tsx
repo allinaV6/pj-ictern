@@ -3,6 +3,9 @@ import { User, CheckSquare } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const getNotificationPreferenceKey = (userType: 'student' | 'admin', userId: number | string) =>
+  `notificationsEnabled:${userType}:${userId}`;
+
 export default function Setting() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -20,13 +23,22 @@ export default function Setting() {
 
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
-  }, []);
 
-  // 🔥 โหลดสถานะการแจ้งเตือนจาก localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("notificationsEnabled");
-    if (saved !== null) {
-      setNotificationsEnabled(JSON.parse(saved));
+    const userId = parsedUser?.student_id || parsedUser?.admin_id || parsedUser?.user_id;
+    const userType: 'student' | 'admin' = parsedUser?.student_id ? 'student' : 'admin';
+    const scopedKey = getNotificationPreferenceKey(userType, userId);
+
+    const scoped = localStorage.getItem(scopedKey);
+    const legacy = localStorage.getItem("notificationsEnabled");
+    const effective = scoped ?? legacy;
+
+    if (effective !== null) {
+      const parsed = JSON.parse(effective);
+      setNotificationsEnabled(parsed);
+      localStorage.setItem(scopedKey, JSON.stringify(parsed));
+    } else {
+      localStorage.setItem(scopedKey, JSON.stringify(true));
+      setNotificationsEnabled(true);
     }
   }, []);
 
@@ -34,7 +46,17 @@ export default function Setting() {
   const handleNotificationChange = () => {
     const newState = !notificationsEnabled;
     setNotificationsEnabled(newState);
+
+    const userId = user?.student_id || user?.admin_id || user?.user_id;
+    const userType: 'student' | 'admin' = user?.student_id ? 'student' : 'admin';
+    if (userId) {
+      const scopedKey = getNotificationPreferenceKey(userType, userId);
+      localStorage.setItem(scopedKey, JSON.stringify(newState));
+    }
+
+    // Backward compatibility with older clients/code paths.
     localStorage.setItem("notificationsEnabled", JSON.stringify(newState));
+    window.dispatchEvent(new Event("notificationsEnabledChanged"));
   };
 
   // 🔥 Map major abbreviation เป็นชื่อเต็ม
@@ -110,9 +132,13 @@ export default function Setting() {
                 </div>
 
                 <span className="text-gray-700 text-base">
-                  รับการแจ้งเตือนโพสต์ประกาศการฝึกงาน
+                  รับการแจ้งเตือนโพสต์ประกาศการฝึกงานที่ชอบ
                 </span>
               </div>
+
+              <p className="mt-3 text-sm text-gray-500">
+                หากไม่เลือก ระบบจะไม่แสดงรายการแจ้งเตือนโพสต์ที่ชอบในแถบการแจ้งเตือน
+              </p>
             </div>
 
           </div>

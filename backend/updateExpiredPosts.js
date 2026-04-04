@@ -20,18 +20,31 @@ async function updateExpiredPosts() {
 
     const thailandDate = getThailandDate();
 
-    const [result] = await conn.query(
+    const [closeResult] = await conn.query(
       `UPDATE internship_posts
        SET internship_status = 0
-       WHERE internship_expired_date < ? AND internship_status = 1`,
+       WHERE internship_expired_date IS NOT NULL
+         AND internship_expired_date < ?
+         AND internship_status <> 0`,
       [thailandDate]
     );
 
-    const affectedRows = result.affectedRows;
-    if (affectedRows > 0) {
-      console.log(`✅ Updated ${affectedRows} expired internship posts to status 0 (closed).`);
+    const [openResult] = await conn.query(
+      `UPDATE internship_posts
+       SET internship_status = 1
+       WHERE internship_expired_date IS NOT NULL
+         AND internship_expired_date >= ?
+         AND internship_status <> 1`,
+      [thailandDate]
+    );
+
+    const closedCount = closeResult.affectedRows || 0;
+    const openedCount = openResult.affectedRows || 0;
+
+    if (closedCount > 0 || openedCount > 0) {
+      console.log(`✅ Synced internship status by expired date (closed: ${closedCount}, opened: ${openedCount}).`);
     } else {
-      console.log('ℹ️ No internship posts found to update.');
+      console.log('ℹ️ No internship posts needed status sync.');
     }
 
     await conn.end();
