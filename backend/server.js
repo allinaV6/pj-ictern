@@ -891,11 +891,22 @@ app.post("/api/admin/positions", async (req, res) => {
   try {
     await connection.beginTransaction();
     const { position_name, position_description, position_skill, questions } = req.body;
+    const trimmedName = (position_name || "").trim();
+    const trimmedDescription = (position_description || "").trim();
+    const trimmedSkill = (position_skill || "").trim();
+    const normalizedQuestions = Array.isArray(questions)
+      ? questions.map((q) => (q || "").trim()).filter(Boolean).slice(0, 5)
+      : [];
+
+    if (!trimmedName) {
+      await connection.rollback();
+      return res.status(400).json({ message: "กรุณาระบุชื่อตำแหน่งงาน" });
+    }
 
     // 🔥 Check duplicate position name
     const [existing] = await connection.query(
       "SELECT position_id FROM `position` WHERE position_name = ?",
-      [position_name]
+      [trimmedName]
     );
 
     if (existing.length > 0) {
@@ -905,12 +916,12 @@ app.post("/api/admin/positions", async (req, res) => {
 
     const [result] = await connection.query(
       "INSERT INTO `position` (position_name, position_description, position_skill) VALUES (?, ?, ?)",
-      [position_name, position_description, position_skill]
+      [trimmedName, trimmedDescription, trimmedSkill]
     );
     const position_id = result.insertId;
 
-    if (Array.isArray(questions) && questions.length > 0) {
-      for (const q of questions) {
+    if (normalizedQuestions.length > 0) {
+      for (const q of normalizedQuestions) {
         await connection.query(
           "INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)",
           [q, position_id]
@@ -935,17 +946,28 @@ app.put("/api/admin/positions/:id", async (req, res) => {
     await connection.beginTransaction();
     const { id } = req.params;
     const { position_name, position_description, position_skill, questions } = req.body;
+    const trimmedName = (position_name || "").trim();
+    const trimmedDescription = (position_description || "").trim();
+    const trimmedSkill = (position_skill || "").trim();
+    const normalizedQuestions = Array.isArray(questions)
+      ? questions.map((q) => (q || "").trim()).filter(Boolean).slice(0, 5)
+      : [];
+
+    if (!trimmedName) {
+      await connection.rollback();
+      return res.status(400).json({ message: "กรุณาระบุชื่อตำแหน่งงาน" });
+    }
 
     await connection.query(
       "UPDATE `position` SET position_name = ?, position_description = ?, position_skill = ? WHERE position_id = ?",
-      [position_name, position_description, position_skill, id]
+      [trimmedName, trimmedDescription, trimmedSkill, id]
     );
 
     // Delete old questions and insert new ones (simpler than update)
     await connection.query("DELETE FROM quiz_question WHERE position_id = ?", [id]);
 
-    if (Array.isArray(questions) && questions.length > 0) {
-      for (const q of questions) {
+    if (normalizedQuestions.length > 0) {
+      for (const q of normalizedQuestions) {
         await connection.query(
           "INSERT INTO quiz_question (quiz_question, position_id) VALUES (?, ?)",
           [q, id]
@@ -1288,7 +1310,8 @@ app.get('/api/questions', async (req, res) => {
           quiz_question AS question_text,
           position_id
          FROM quiz_question 
-         WHERE position_id = ? 
+         WHERE position_id = ?
+           AND TRIM(COALESCE(quiz_question, '')) <> ''
          ORDER BY RAND() 
          LIMIT 5`,
         [pos]
@@ -1310,13 +1333,29 @@ app.get('/api/questions', async (req, res) => {
 // ==================================================
 app.get('/api/positions', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM `position`');
+    const [rows] = await db.query(`
+      SELECT
+        p.position_id,
+        p.position_name,
+        p.position_description
+      FROM \`position\` p
+      WHERE TRIM(COALESCE(p.position_name, '')) <> ''
+        AND TRIM(COALESCE(p.position_description, '')) <> ''
+        AND TRIM(COALESCE(p.position_skill, '')) <> ''
+        AND (
+          SELECT COUNT(*)
+          FROM quiz_question qq
+          WHERE qq.position_id = p.position_id
+            AND TRIM(COALESCE(qq.quiz_question, '')) <> ''
+        ) >= 5
+      ORDER BY p.position_name ASC
+    `);
 
     const formatted = rows.map(p => ({
       id: p.position_name,
       position_id: p.position_id,
-      title: p.position_name,           // ✅ ใช้ชื่อจริง
-      description: p.position_description // ✅ อธิบายงาน
+      title: p.position_name,
+      description: p.position_description
     }));
 
     res.json(formatted);

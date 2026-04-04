@@ -34,7 +34,7 @@ export default function AdminInternshipPostList() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [openMenuPostId, setOpenMenuPostId] = useState<number | null>(null);
-  const [sortKey, setSortKey] = useState<'internship_title' | 'company_name' | 'internship_create_date' | 'internship_status'>('internship_create_date');
+  const [sortKey, setSortKey] = useState<'internship_title' | 'company_name' | 'internship_create_date' | 'internship_expired_date' | 'internship_status'>('internship_create_date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [importExportOpen, setImportExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -224,6 +224,12 @@ export default function AdminInternshipPostList() {
       return (at - bt) * dir;
     }
 
+    if (sortKey === 'internship_expired_date') {
+      const at = a.internship_expired_date ? new Date(a.internship_expired_date).getTime() : 0;
+      const bt = b.internship_expired_date ? new Date(b.internship_expired_date).getTime() : 0;
+      return (at - bt) * dir;
+    }
+
     if (sortKey === 'internship_status') {
       const av = a.internship_status ?? 1;
       const bv = b.internship_status ?? 1;
@@ -340,7 +346,7 @@ export default function AdminInternshipPostList() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-[2fr_2fr_1.5fr_1fr_56px] px-6 py-3 text-sm font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
+          <div className="grid grid-cols-[2fr_2fr_1.5fr_1.5fr_1fr_56px] px-6 py-3 text-sm font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
             <button
               className="flex items-center gap-2 text-left"
               onClick={(e) => {
@@ -399,6 +405,24 @@ export default function AdminInternshipPostList() {
               className="flex items-center gap-2 text-left"
               onClick={(e) => {
                 e.stopPropagation();
+                toggleSort('internship_expired_date');
+              }}
+            >
+              วันที่ปิดรับสมัคร
+              <span className="group inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-gray-200/60 transition-colors">
+                {sortKey === 'internship_expired_date' ? (
+                  sortDir === 'asc'
+                    ? <ArrowUp size={14} className="text-gray-500 group-hover:text-gray-700" />
+                    : <ArrowDown size={14} className="text-gray-500 group-hover:text-gray-700" />
+                ) : (
+                  <ArrowUpDown size={14} className="text-gray-300 group-hover:text-gray-500" />
+                )}
+              </span>
+            </button>
+            <button
+              className="flex items-center gap-2 text-left"
+              onClick={(e) => {
+                e.stopPropagation();
                 toggleSort('internship_status');
               }}
             >
@@ -425,13 +449,16 @@ export default function AdminInternshipPostList() {
               const createdDate = post.internship_create_date
                 ? new Date(post.internship_create_date).toLocaleDateString('th-TH')
                 : '-';
+              const expiredDate = post.internship_expired_date
+                ? new Date(post.internship_expired_date).toLocaleDateString('th-TH')
+                : '-';
               const status = post.internship_status ?? 1;
               const isMenuOpen = openMenuPostId === post.post_id;
 
               return (
                 <div
                   key={post.post_id}
-                  className="grid grid-cols-[2fr_2fr_1.5fr_1fr_56px] px-6 py-4 text-base text-gray-800 items-center border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors duration-150"
+                  className="grid grid-cols-[2fr_2fr_1.5fr_1.5fr_1fr_56px] px-6 py-4 text-base text-gray-800 items-center border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors duration-150"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigate(`/admin/internship-posts/${post.post_id}`);
@@ -440,6 +467,7 @@ export default function AdminInternshipPostList() {
                   <div className="font-medium">{post.internship_title}</div>
                   <div className="text-gray-700">{post.company_name}</div>
                   <div className="text-gray-500 text-sm">{createdDate}</div>
+                  <div className="text-gray-500 text-sm">{expiredDate}</div>
                   <div>
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                       status === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'

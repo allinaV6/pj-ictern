@@ -15,6 +15,19 @@ export default function AdminPositionDetail() {
     questions: ['', '', '', '', '']
   });
 
+  const normalizeQuestions = (rawQuestions: any[] = []) => {
+    const questionTexts = rawQuestions
+      .map((q) => (q?.quiz_question || '').toString().trim())
+      .filter(Boolean)
+      .slice(0, 5);
+
+    while (questionTexts.length < 5) {
+      questionTexts.push('');
+    }
+
+    return questionTexts;
+  };
+
   useEffect(() => {
     if (id) fetchPosition();
   }, [id]);
@@ -28,7 +41,7 @@ export default function AdminPositionDetail() {
         position_name: data.position_name || '',
         position_description: data.position_description || '',
         position_skill: data.position_skill || '',
-        questions: data.questions?.map((q: any) => q.quiz_question) || ['', '', '', '', '']
+        questions: normalizeQuestions(data.questions)
       });
     } catch (error) {
       console.error('Error fetching position:', error);
@@ -47,19 +60,22 @@ export default function AdminPositionDetail() {
   };
 
   const handleSave = async () => {
-    if (!form.position_name || !form.position_description) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+    if (!form.position_name.trim()) {
+      alert('กรุณาระบุชื่อตำแหน่งงาน');
       return;
     }
 
-    if (form.questions.some(q => !q.trim())) {
-      alert('กรุณาระบุข้อคำถามให้ครบ 5 ข้อ');
-      return;
-    }
+    const payload = {
+      ...form,
+      position_name: form.position_name.trim(),
+      position_description: form.position_description.trim(),
+      position_skill: form.position_skill.trim(),
+      questions: form.questions.map((q) => q.trim())
+    };
 
     try {
       setSaving(true);
-      await axios.put(`http://localhost:5000/api/admin/positions/${id}`, form);
+      await axios.put(`http://localhost:5000/api/admin/positions/${id}`, payload);
       alert('แก้ไขข้อมูลสำเร็จ');
       navigate('/admin/positions');
     } catch (error) {
@@ -121,7 +137,7 @@ export default function AdminPositionDetail() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                คำอธิบายตำแหน่งงาน <span className="text-red-500">*</span>
+                คำอธิบายตำแหน่งงาน
               </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -132,7 +148,7 @@ export default function AdminPositionDetail() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                แนวทางการพัฒนาทักษะ <span className="text-red-500">*</span>
+                แนวทางการพัฒนาทักษะ
               </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -143,7 +159,7 @@ export default function AdminPositionDetail() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                ระบุข้อคำถาม 5 ข้อ <span className="text-red-500">*</span>
+                ระบุข้อคำถาม 5 ข้อ
               </label>
               <div className="space-y-3">
                 {form.questions.map((q, index) => (

@@ -7,6 +7,8 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isOnAdminSite = location.pathname.startsWith('/admin');
+  const isOnPostsPage = location.pathname.startsWith('/posts');
+  const isOnQuizPage = location.pathname.startsWith('/quiz');
   
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
@@ -24,6 +26,14 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
     localStorage.removeItem("role");
     navigate("/");
   };
+
+  const getNavLinkClassName = (isActive: boolean) =>
+    [
+      'flex items-center px-3 py-2 rounded-full transition-colors',
+      isActive
+        ? 'bg-blue-50 text-blue-700 font-semibold'
+        : 'text-gray-700 hover:text-blue-600 hover:bg-gray-100'
+    ].join(' ');
 
   return (
     <nav className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-50">
@@ -45,8 +55,30 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
           
           {!isAdmin && (
             <>
-              <Link to="/posts" className="hover:text-blue-600">ประกาศ</Link>
-              <Link to="/quiz" className="hover:text-blue-600">แบบทดสอบ</Link>
+              <Link
+                to="/posts"
+                className={getNavLinkClassName(isOnPostsPage)}
+                aria-current={isOnPostsPage ? 'page' : undefined}
+              >
+                <span className="relative">
+                  ประกาศ
+                  {isOnPostsPage && (
+                    <span className="absolute left-0 -bottom-1 h-0.5 w-full rounded-full bg-blue-600" />
+                  )}
+                </span>
+              </Link>
+              <Link
+                to="/quiz"
+                className={getNavLinkClassName(isOnQuizPage)}
+                aria-current={isOnQuizPage ? 'page' : undefined}
+              >
+                <span className="relative">
+                  แบบทดสอบ
+                  {isOnQuizPage && (
+                    <span className="absolute left-0 -bottom-1 h-0.5 w-full rounded-full bg-blue-600" />
+                  )}
+                </span>
+              </Link>
             </>
           )}
           

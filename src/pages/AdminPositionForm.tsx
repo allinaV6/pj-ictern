@@ -22,19 +22,22 @@ export default function AdminPositionForm() {
   };
 
   const handleSave = async () => {
-    if (!form.position_name || !form.position_description) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+    if (!form.position_name.trim()) {
+      alert('กรุณาระบุชื่อตำแหน่งงาน');
       return;
     }
 
-    if (form.questions.some(q => !q.trim())) {
-      alert('กรุณาระบุข้อคำถามให้ครบ 5 ข้อ');
-      return;
-    }
+    const payload = {
+      ...form,
+      position_name: form.position_name.trim(),
+      position_description: form.position_description.trim(),
+      position_skill: form.position_skill.trim(),
+      questions: form.questions.map((q) => q.trim())
+    };
 
     try {
       setLoading(true);
-      await axios.post('http://localhost:5000/api/admin/positions', form);
+      await axios.post('http://localhost:5000/api/admin/positions', payload);
       alert('เพิ่มตำแหน่งงานสำเร็จ');
       navigate('/admin/positions');
     } catch (error: any) {
@@ -88,7 +91,7 @@ export default function AdminPositionForm() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                คำอธิบายตำแหน่งงาน <span className="text-red-500">*</span>
+                คำอธิบายตำแหน่งงาน
               </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -100,7 +103,7 @@ export default function AdminPositionForm() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                แนวทางการพัฒนาทักษะ <span className="text-red-500">*</span>
+                แนวทางการพัฒนาทักษะ
               </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -112,7 +115,7 @@ export default function AdminPositionForm() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                ระบุข้อคำถาม 5 ข้อ <span className="text-red-500">*</span>
+                ระบุข้อคำถาม 5 ข้อ
               </label>
               <div className="space-y-3">
                 {form.questions.map((q, index) => (
