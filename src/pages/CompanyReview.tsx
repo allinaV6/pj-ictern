@@ -72,8 +72,11 @@ export default function CompanyReview() {
         return;
       }
 
-      // ✅ เช็ค user login
-      if (!user?.student_id) {
+      // ✅ เช็ค user login - รองรับทั้ง student และ admin
+      const userId = user?.student_id || user?.admin_id || user?.user_id;
+      const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
+      
+      if (!userId) {
         alert("กรุณาเข้าสู่ระบบก่อน");
         navigate("/");
         return;
@@ -81,7 +84,8 @@ export default function CompanyReview() {
 
       const payload = {
         company_id: companyId,
-        student_id: user.student_id, // 🔥 ใช้ user จริง
+        student_id: userId,
+        user_type: userRole,
         review_sum_rating: parseFloat(averageRating),
         review_work_rating: getCategoryAvg([
           "work_challenge","work_creativity","work_growth","work_tools"

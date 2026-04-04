@@ -100,14 +100,19 @@ function InternshipPosts() {
 const loadFavorites = async () => {
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const studentId = user?.student_id;
+  const userId = user?.student_id || user?.admin_id || user?.user_id;
+  const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
 
-  if (!studentId) {
+  if (!userId) {
     setFavoriteIds([]); // กันค่าค้าง
     return;
   }
 
-  const res = await fetch(`http://localhost:5000/api/favorites/${studentId}`);
+  const url = userRole === 'admin' 
+    ? `http://localhost:5000/api/favorites/${userId}?user_type=admin`
+    : `http://localhost:5000/api/favorites/${userId}`;
+  
+  const res = await fetch(url);
   const data = await res.json();
 
   const ids = data.map((f: any) => f.post_id);
@@ -123,9 +128,10 @@ useEffect(() => {
 const toggleFavorite = async (postId: number) => {
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const studentId = user?.student_id;
+  const userId = user?.student_id || user?.admin_id || user?.user_id;
+  const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
 
-  if (!studentId) {
+  if (!userId) {
     alert("กรุณาเข้าสู่ระบบก่อน");
     return;
   }
@@ -136,13 +142,13 @@ const toggleFavorite = async (postId: number) => {
     await fetch("http://localhost:5000/api/favorites", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ student_id: studentId, post_id: postId })
+      body: JSON.stringify({ student_id: userId, post_id: postId, user_type: userRole })
     });
   } else {
     await fetch("http://localhost:5000/api/favorites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ student_id: studentId, post_id: postId })
+      body: JSON.stringify({ student_id: userId, post_id: postId, user_type: userRole })
     });
   }
 
@@ -240,10 +246,10 @@ const toggleFavorite = async (postId: number) => {
               className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700"
             >
               <option value="">เรียงตาม</option>
-              <option value="compensation">💰 เงินมากสุด</option>
-              <option value="duration">⏳ ระยะเวลามากสุด</option>
-              <option value="rating">⭐ rating สูงสุด</option>
-              <option value="date">📅 ล่าสุด</option>
+              <option value="compensation">เงินมากสุด</option>
+              <option value="duration">ระยะเวลามากสุด</option>
+              <option value="rating">rating สูงสุด</option>
+              <option value="date">ล่าสุด</option>
             </select>
 
             {/* ❤️ favorite */}
@@ -306,8 +312,8 @@ const toggleFavorite = async (postId: number) => {
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-1 text-gray-400 text-sm font-bold">
-                    ⭐ {(post.rating ?? 0).toFixed(1)}
+                  <div className={`flex items-center gap-1 text-sm font-bold ${post.review_count > 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
+                    <Star size={14} fill="currentColor" className="fill-current" /> {(post.rating ?? 0).toFixed(1)}
                     <span className="text-gray-300 font-normal ml-1">
                       ({post.review_count ?? 0} Reviews)
                     </span>
@@ -406,8 +412,8 @@ const toggleFavorite = async (postId: number) => {
                       <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedPost.internship_title}</h2>
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
-                        <div className="flex items-center gap-1 text-yellow-500 font-bold">
-                          ⭐ {(selectedPost?.rating ?? 0).toFixed(1)}
+                        <div className={`flex items-center gap-1 font-bold ${selectedPost?.review_count ? 'text-yellow-500' : 'text-gray-400'}`}>
+                          <Star size={16} fill="currentColor" className="fill-current" /> {(selectedPost?.rating ?? 0).toFixed(1)}
                           <span className="text-gray-400 font-normal ml-1">
                             ({selectedPost?.review_count ?? 0} Reviews)
                           </span>
