@@ -1727,6 +1727,7 @@ app.get("/api/notifications/:student_id", async (req, res) => {
       JOIN internship_posts i 
         ON f.internship_posts_id = i.internship_posts_id
       WHERE f.student_id = ?
+        AND i.internship_expired_date >= CURDATE()
     `, [student_id]);
 
     const today = new Date();
@@ -1754,6 +1755,48 @@ app.get("/api/notifications/:student_id", async (req, res) => {
     res.status(500).json({ error: "server error" });
   }
 });
+
+// ==================================================
+// GET ADMIN NOTIFICATIONS (ใกล้หมดอายุ)
+// ==================================================
+app.get("/api/admin/notifications", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        internship_posts_id AS post_id,
+        internship_title,
+        internship_expired_date
+      FROM internship_posts
+      WHERE internship_status = 'active'
+        AND internship_expired_date >= CURDATE()
+    `);
+
+    const today = new Date();
+
+    const notifications = rows
+      .map(post => {
+        const expired = new Date(post.internship_expired_date);
+        const diffTime = expired.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 7 && diffDays >= 0) {  // แสดงถ้าเหลือ 7 วัน
+          return {
+            ...post,
+            daysLeft: diffDays
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    res.json(notifications);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
