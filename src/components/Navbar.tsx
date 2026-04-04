@@ -38,7 +38,6 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
         : 'text-gray-700 hover:text-blue-600 hover:bg-gray-100'
     ].join(' ');
 
-  // 🔥 โหลด notification
   const loadNotifications = async () => {
     const studentId = user?.student_id;
     if (!studentId) return;
@@ -53,28 +52,30 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
     }
   };
 
-  // 🔥 โหลดตอนเปิดหน้า
+
   useEffect(() => {
     loadNotifications();
   }, []);
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-50">
+    <nav className="bg-white border-b border-gray-200 px-6 py-2 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto flex justify-between items-center">
         
         {/* Logo */}
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-sm text-gray-500">
-            Logo
-          </div>
+        <div className="flex items-center gap-3">
+          <img
+            src="/ictern logo 250x150 nobg.png"
+            alt="ICtern Logo"
+            className="w-[132px] h-[79px] md:w-[148px] md:h-[89px] object-contain flex-shrink-0"
+          />
           <div>
-            <h1 className="text-2xl font-bold text-blue-900">Mahidol University</h1>
-            <p className="text-base text-gray-500">Faculty of ICT</p>
+            <h1 className="text-lg md:text-xl leading-tight text-blue-900">Faculty of Information and</h1>
+            <h1 className="text-lg md:text-xl leading-tight text-blue-900">Communication Technology</h1>
           </div>
         </div>
         
         {/* Menu */}
-        <div className="flex items-center gap-6 text-gray-700 font-medium text-base">
+        <div className="flex items-center gap-4 text-gray-700 font-medium text-sm md:text-base">
           
           {!isAdmin && (
             <>
@@ -107,8 +108,8 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
           
           {/* 🔔 Notification */}
           <div className="relative">
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-full relative"
+              <button 
+              className="p-1.5 hover:bg-gray-100 rounded-full relative"
               onClick={() => {
                 setIsDropdownOpen(false);
                 loadNotifications();
@@ -155,10 +156,10 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
                 setIsDropdownOpen(!isDropdownOpen);
               }}
             >
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-bold text-white uppercase">
+              <div className="w-7 h-7 bg-gray-300 rounded-full flex items-center justify-center text-xs font-bold text-white uppercase">
                 {(user?.student_name || user?.username || "U").charAt(0)}
               </div>
-              <ChevronDown size={16} />
+              <ChevronDown size={14} />
             </div>
 
             {isDropdownOpen && (

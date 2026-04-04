@@ -329,7 +329,7 @@ const toggleFavorite = async (postId: number) => {
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
-                  <div className={`flex items-center gap-1 text-sm font-bold ${post.review_count > 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 text-sm font-bold ${(post.review_count ?? 0) > 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
                     <Star size={14} fill="currentColor" className="fill-current" /> {(post.rating ?? 0).toFixed(1)}
                     <span className="text-gray-300 font-normal ml-1">
                       ({post.review_count ?? 0} Reviews)
