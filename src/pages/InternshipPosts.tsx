@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail, Building2, Laptop, Blend } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { formatThaiDateOnly, getDaysLeftFromToday, isPostOpenByDateAndStatus } from '../lib/postStatus';
 
 interface InternshipPostType {
   post_id: number;
@@ -38,38 +39,9 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
-const formatDateOnly = (dateString: string | undefined): string => {
-  if (!dateString) return '-';
-  const text = String(dateString).trim();
-  if (!text || text === '0000-00-00') return '-';
+const formatDateOnly = (dateString: string | undefined): string => formatThaiDateOnly(dateString);
 
-  const parts = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (parts) {
-    const day = Number(parts[1]);
-    const month = Number(parts[2]);
-    let year = Number(parts[3]);
-    if (year > 2400) year -= 543;
-    const parsed = new Date(year, month - 1, day);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleDateString('th-TH');
-    }
-  }
-
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime())) return '-';
-  return parsed.toLocaleDateString('th-TH');
-};
-
-const getDaysLeft = (dateString: string | undefined): number | null => {
-  if (!dateString) return null;
-  const parsed = new Date(String(dateString));
-  if (Number.isNaN(parsed.getTime())) return null;
-
-  const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const targetOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-  return Math.ceil((targetOnly.getTime() - todayOnly.getTime()) / (1000 * 60 * 60 * 24));
-};
+const getDaysLeft = (dateString: string | undefined): number | null => getDaysLeftFromToday(dateString);
 
 const getExpireTextColor = (daysLeft: number | null): string => {
   if (daysLeft === null) return 'text-gray-500';
@@ -238,7 +210,7 @@ const toggleFavorite = async (postId: number) => {
       });
 
     const compareStatusFirst = (a: InternshipPostType, b: InternshipPostType) => {
-      const statusDiff = Number(b.internship_status ?? 1) - Number(a.internship_status ?? 1);
+      const statusDiff = Number(isPostOpenByDateAndStatus(b)) - Number(isPostOpenByDateAndStatus(a));
       if (statusDiff !== 0) return statusDiff;
       return 0;
     };
@@ -292,6 +264,19 @@ const toggleFavorite = async (postId: number) => {
         new Date(a.internship_expired_date).getTime() -
         new Date(b.internship_expired_date).getTime()
       );
+    }
+
+    if (sortType === "mou") {
+      result.sort((a, b) => {
+        const statusDiff = compareStatusFirst(a, b);
+        if (statusDiff !== 0) return statusDiff;
+
+        const mouDiff = Number(b.mou ?? 0) - Number(a.mou ?? 0);
+        if (mouDiff !== 0) return mouDiff;
+
+        return new Date(b.internship_create_date || 0).getTime() -
+          new Date(a.internship_create_date || 0).getTime();
+      });
     }
 
     if (!sortType) {
@@ -360,6 +345,7 @@ const toggleFavorite = async (postId: number) => {
               <option value="rating">คะแนนรีวิวสูงสุด</option>
               <option value="rating_asc">คะแนนรีวิวต่ำสุด</option>
               <option value="nearest_expiry">ใกล้ปิดรับสมัครที่สุด</option>
+              <option value="mou">MOU ก่อน</option>
             </select>
 
             {/* ❤️ favorite */}
@@ -385,8 +371,7 @@ const toggleFavorite = async (postId: number) => {
 
           {filteredPosts.map((post) => {
             const isFavorite = favoriteIds.includes(post.post_id);
-            const statusValue = Number(post.internship_status ?? 1);
-            const isOpen = statusValue === 1;
+            const isOpen = isPostOpenByDateAndStatus(post);
             const daysLeft = getDaysLeft(post.internship_expired_date);
             const expireTextColorClass = getExpireTextColor(daysLeft);
             const WorkingMethodIcon = getWorkingMethodIcon(post.internship_working_method);
@@ -518,7 +503,7 @@ const toggleFavorite = async (postId: number) => {
 
             <div className="overflow-y-auto p-8 pt-10">
               {(() => {
-                const isOpen = (selectedPost.internship_status ?? 1) === 1;
+                const isOpen = isPostOpenByDateAndStatus(selectedPost);
                 const SelectedWorkingMethodIcon = getWorkingMethodIcon(selectedPost.internship_working_method);
                 return (
                   <>
@@ -629,7 +614,7 @@ const toggleFavorite = async (postId: number) => {
             {/* Footer Actions */}
             <div className="p-8 pt-4 flex justify-center gap-4">
               {(() => {
-                const isOpen = (selectedPost.internship_status ?? 1) === 1;
+                const isOpen = isPostOpenByDateAndStatus(selectedPost);
                 return (
                   <>
               <button 

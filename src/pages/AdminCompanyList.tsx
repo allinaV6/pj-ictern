@@ -83,20 +83,30 @@ export default function AdminCompanyList() {
       return;
     }
 
+    const formatDateForExport = (value: string) => {
+      if (!value) return '';
+      const parsed = new Date(String(value));
+      if (Number.isNaN(parsed.getTime())) return '';
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
     const exportRows = sorted.map((company) => ({
       'Company ID': company.company_id,
       'Company Name': company.company_name,
-      'Address': company.company_address || '-',
-      'Type': company.company_type || '-',
-      'Email': company.company_email || '-',
-      'Phone': company.company_phone_num || '-',
-      'Link': company.company_link || '-',
-      'Description': company.company_description || '-',
-      'Logo URL': company.company_logo ? toLogoUrl(company.company_logo) : '-',
+      'Address': company.company_address || '',
+      'Type': company.company_type || '',
+      'Email': company.company_email || '',
+      'Phone': company.company_phone_num || '',
+      'Link': company.company_link || '',
+      'Description': company.company_description || '',
+      'Logo URL': company.company_logo ? toLogoUrl(company.company_logo) : '',
       'Status': (company.company_status ?? 1) === 1 ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร',
-      'Created Date': company.company_create_date ? new Date(company.company_create_date).toLocaleDateString('th-TH') : '-',
-      'Admin ID': company.admin_id ?? '-',
-      'Account ID': company.account_id ?? '-',
+      'Created Date': formatDateForExport(company.company_create_date || ''),
+      'Admin ID': company.admin_id ?? '',
+      'Account ID': company.account_id ?? '',
       'Total Posts': company.total_posts ?? 0,
     }));
 
@@ -133,8 +143,22 @@ export default function AdminCompanyList() {
 
   const parseDateValue = (value: any) => {
     if (!value) return '';
-    if (value instanceof Date) return value.toISOString().split('T')[0];
-    return String(value);
+    const toLocalDateString = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    if (value instanceof Date) return toLocalDateString(value);
+
+    const raw = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return toLocalDateString(parsed);
+
+    return raw;
   };
 
   const normalizeLogoUrl = (value: any) => {
@@ -149,12 +173,12 @@ export default function AdminCompanyList() {
       const imported = rows.map((row) => ({
         company_id: parseNumber(row['Company ID']),
         company_name: String(row['Company Name'] || ''),
-        company_address: String(row['Address'] || ''),
-        company_type: String(row['Type'] || ''),
-        company_email: String(row['Email'] || ''),
-        company_phone_num: String(row['Phone'] || ''),
-        company_link: String(row['Link'] || ''),
-        company_description: String(row['Description'] || ''),
+        company_address: String(row['Address'] || '').trim() === '-' ? '' : String(row['Address'] || ''),
+        company_type: String(row['Type'] || '').trim() === '-' ? '' : String(row['Type'] || ''),
+        company_email: String(row['Email'] || '').trim() === '-' ? '' : String(row['Email'] || ''),
+        company_phone_num: String(row['Phone'] || '').trim() === '-' ? '' : String(row['Phone'] || ''),
+        company_link: String(row['Link'] || '').trim() === '-' ? '' : String(row['Link'] || ''),
+        company_description: String(row['Description'] || '').trim() === '-' ? '' : String(row['Description'] || ''),
         company_logo: normalizeLogoUrl(row['Logo URL'] || row['company_logo'] || ''),
         company_status: parseStatus(row['Status']),
         company_create_date: parseDateValue(row['Created Date'] || ''),
@@ -170,7 +194,10 @@ export default function AdminCompanyList() {
       alert('นำเข้าข้อมูลสำเร็จ และอัปเดตลงฐานข้อมูลเรียบร้อยแล้ว');
     } catch (error) {
       console.error('Error importing companies:', error);
-      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
+      const backendMessage = axios.isAxiosError(error)
+        ? (error.response?.data?.message || error.response?.data?.error)
+        : '';
+      alert(backendMessage || 'ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
     }
   };
 

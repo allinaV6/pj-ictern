@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bell, ChevronDown, MapPin, Clock, Calendar, FileText, X, CheckCircle, XCircle, Star } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { formatThaiDateOnly, isPostOpenByDateAndStatus, normalizeDateToISO } from '../lib/postStatus';
 
 const renderCompensation = (value: string | number | undefined | null): string => {
   if (!value || value === '' || value === 'N/A') return 'N/A';
@@ -14,10 +15,7 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
-const formatDateOnly = (dateString: string | undefined): string => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('th-TH');
-};
+const formatDateOnly = (dateString: string | undefined): string => formatThaiDateOnly(dateString);
 
 const getNotificationPreferenceKey = (userType: 'student' | 'admin', userId: number | string) =>
   `notificationsEnabled:${userType}:${userId}`;
@@ -142,6 +140,8 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
     }
   }, [selectedPostId]);
 
+  const selectedPostIsOpen = selectedPost ? isPostOpenByDateAndStatus(selectedPost) : false;
+
   return (
     <>
     <nav className="bg-white border-b border-gray-200 px-6 py-2 sticky top-0 z-50">
@@ -227,7 +227,9 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
                       .sort((a, b) => {
                         const dayDiff = Number(a.daysLeft ?? 999) - Number(b.daysLeft ?? 999);
                         if (dayDiff !== 0) return dayDiff;
-                        return new Date(a.internship_expired_date).getTime() - new Date(b.internship_expired_date).getTime();
+                        const dateA = normalizeDateToISO(a.internship_expired_date) || '9999-12-31';
+                        const dateB = normalizeDateToISO(b.internship_expired_date) || '9999-12-31';
+                        return dateA.localeCompare(dateB);
                       })
                       .map((n, index) => (
                       <div 
@@ -345,9 +347,9 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
                 </div>
 
                 <div className="flex flex-wrap gap-4 mb-8 text-[15px]">
-                  <div className={`flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-lg border ${selectedPost.internship_status === 1 ? 'text-green-600 bg-green-50 border-green-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
-                    {selectedPost.internship_status === 1 ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                    {selectedPost.internship_status === 1 ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
+                  <div className={`flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-lg border ${selectedPostIsOpen ? 'text-green-600 bg-green-50 border-green-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
+                    {selectedPostIsOpen ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                    {selectedPostIsOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                   </div>
                   <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                     <FileText size={16} />
@@ -433,6 +435,8 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
               </button>
               <button 
                 onClick={() => {
+                  if (!selectedPostIsOpen) return;
+
                   const applyType = selectedPost.internship_apply_type;
                   const applyLink = selectedPost.internship_link || '';
                   if (applyType === 'email' || applyLink.includes('@')) {
@@ -444,9 +448,12 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
                     alert('ไม่มีข้อมูลการสมัครงาน');
                   }
                 }}
-                className="px-10 py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
+                disabled={!selectedPostIsOpen}
+                className={`px-10 py-3 text-white font-bold rounded-xl transition-colors shadow-sm ${
+                  selectedPostIsOpen ? 'bg-[#1a3a8a] hover:bg-blue-800' : 'bg-gray-400 cursor-not-allowed'
+                }`}
               >
-                สมัครงาน
+                {selectedPostIsOpen ? 'สมัครงาน' : 'ปิดรับสมัคร'}
               </button>
             </div>
           )}

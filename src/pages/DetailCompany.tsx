@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Star, Calendar, Clock } from 'lucide-react';
 import axios from 'axios';
+import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../lib/postStatus';
 
 interface CompanyData {
   company_id: number;
@@ -43,28 +44,7 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
-const formatThaiDate = (value: string | undefined | null): string => {
-  if (!value) return '-';
-  const text = String(value).trim();
-  if (!text || text === '0000-00-00') return '-';
-
-  // Handle dd/mm/yyyy or dd-mm-yyyy, including Buddhist year.
-  const parts = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (parts) {
-    const day = Number(parts[1]);
-    const month = Number(parts[2]);
-    let year = Number(parts[3]);
-    if (year > 2400) year -= 543;
-    const parsed = new Date(year, month - 1, day);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleDateString('th-TH');
-    }
-  }
-
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime())) return '-';
-  return parsed.toLocaleDateString('th-TH');
-};
+const formatThaiDate = (value: string | undefined | null): string => formatThaiDateOnly(value);
 
 const maskNamePart = (part: string, visibleChars: number): string => {
   const trimmed = String(part || '').trim();
@@ -271,8 +251,7 @@ export default function DetailCompany() {
           </h2>
           <div className="space-y-4">
             {activeJobs.length > 0 ? activeJobs.map(job => {
-              const statusValue = Number(job.internship_status ?? 1);
-              const isOpen = statusValue === 1;
+              const isOpen = isPostOpenByDateAndStatus(job);
               const statusText = isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร';
               const statusStyles = isOpen
                 ? 'bg-green-100 text-green-700 border-green-200'
@@ -575,7 +554,7 @@ export default function DetailCompany() {
 
               {/* Badges/Tags Row */}
               <div className="flex flex-wrap gap-4 mb-8 text-[13px]">
-                {Number(selectedJob.internship_status ?? 1) === 1 ? (
+                {isPostOpenByDateAndStatus(selectedJob) ? (
                   <div className="flex items-center gap-1.5 text-green-600 font-bold bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
                     <CheckCircle size={16} />
                     เปิดรับสมัคร
@@ -602,7 +581,11 @@ export default function DetailCompany() {
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                   <Calendar size={16} />
-                  ประกาศเมื่อ: 28/10/2025
+                  ประกาศเมื่อ: {formatThaiDate(selectedJob.internship_create_date)}
+                </div>
+                <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                  <Calendar size={16} />
+                  ปิดรับสมัคร: {formatThaiDate(selectedJob.internship_expired_date)}
                 </div>
               </div>
 
@@ -659,9 +642,14 @@ export default function DetailCompany() {
                 ปิดหน้าต่าง
               </button>
               <button 
-                className="px-10 py-3 bg-[#1a3a8a] text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm"
+                disabled={!isPostOpenByDateAndStatus(selectedJob)}
+                className={`px-10 py-3 text-white font-bold rounded-xl transition-colors shadow-sm ${
+                  isPostOpenByDateAndStatus(selectedJob)
+                    ? 'bg-[#1a3a8a] hover:bg-blue-800'
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
               >
-                สมัครงาน
+                {isPostOpenByDateAndStatus(selectedJob) ? 'สมัครงาน' : 'ปิดรับสมัคร'}
               </button>
             </div>
           </div>

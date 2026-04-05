@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { MapPin, Clock, Calendar, FileText, Building2, Mail, Star } from "lucide-react";
+import { MapPin, Clock, Calendar, FileText, Building2, Mail, Star, CheckCircle, XCircle } from "lucide-react";
+import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../lib/postStatus';
 
 interface InternshipPostType {
   post_id: number;
@@ -16,6 +17,7 @@ interface InternshipPostType {
   internship_compensation: string;
   internship_working_method: string;
   internship_create_date: string;
+  internship_status?: number;
   internship_link?: string;
   internship_apply_type?: string;
   internship_poster?: string;
@@ -38,10 +40,7 @@ const renderCompensation = (value: string | number | undefined | null): string =
   return `฿ ${formattedNum} ${unit}`;
 };
 
-const formatDateOnly = (dateString: string | undefined): string => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('th-TH');
-};
+const formatDateOnly = (dateString: string | undefined): string => formatThaiDateOnly(dateString);
 
 function InternshipPostDetail() {
 
@@ -74,6 +73,8 @@ function InternshipPostDetail() {
   if (!post) {
     return <div className="p-10 text-center">ไม่พบข้อมูลโพสต์</div>;
   }
+
+  const isOpen = isPostOpenByDateAndStatus(post);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -114,6 +115,11 @@ function InternshipPostDetail() {
 
           {/* Info */}
           <div className="grid md:grid-cols-2 gap-4 mt-6 text-sm">
+
+            <div className={`flex items-center gap-2 font-bold ${isOpen ? 'text-green-600' : 'text-red-600'}`}>
+              {isOpen ? <CheckCircle size={16} /> : <XCircle size={16} />}
+              {isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
+            </div>
 
             <div className="flex items-center gap-2">
               <Clock size={16}/>
@@ -181,6 +187,8 @@ function InternshipPostDetail() {
             {post.internship_link && (
               <button
                 onClick={() => {
+                  if (!isOpen) return;
+
                   const applyType = post.internship_apply_type;
                   const applyLink = post.internship_link || '';
                   if (applyType === 'email' || applyLink.includes('@')) {
@@ -190,9 +198,12 @@ function InternshipPostDetail() {
                     window.open(finalLink, '_blank');
                   }
                 }}
-                className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
+                disabled={!isOpen}
+                className={`px-6 py-3 text-white rounded-lg ${
+                  isOpen ? 'bg-blue-900 hover:bg-blue-800' : 'bg-gray-400 cursor-not-allowed'
+                }`}
               >
-                สมัครฝึกงาน
+                {isOpen ? 'สมัครฝึกงาน' : 'ปิดรับสมัคร'}
               </button>
             )}
 

@@ -18,6 +18,7 @@ interface Post {
   internship_compensation: string;
   internship_working_method: string;
   internship_link: string;
+  internship_apply_type?: string;
   internship_create_date: string;
   internship_expired_date: string;
   internship_status: number;
@@ -45,6 +46,16 @@ export default function AdminInternshipPostList() {
       return;
     }
 
+    const formatDateForExport = (value: string) => {
+      if (!value) return '';
+      const parsed = new Date(String(value));
+      if (Number.isNaN(parsed.getTime())) return '';
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
     const exportRows = sortedPosts.map((post) => ({
       'Post ID': post.post_id,
       'Company ID': post.company_id,
@@ -58,12 +69,9 @@ export default function AdminInternshipPostList() {
       'Compensation': post.internship_compensation,
       'Working Method': post.internship_working_method,
       'Link': post.internship_link,
-      'Created Date': post.internship_create_date
-        ? new Date(post.internship_create_date).toLocaleDateString('th-TH')
-        : '',
-      'Expired Date': post.internship_expired_date
-        ? new Date(post.internship_expired_date).toLocaleDateString('th-TH')
-        : '',
+      'Apply Type': post.internship_apply_type === 'email' ? 'email' : 'link',
+      'Created Date': formatDateForExport(post.internship_create_date),
+      'Expired Date': formatDateForExport(post.internship_expired_date),
       'Status': (post.internship_status ?? 1) === 1 ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร',
       'MOU': post.mou === 1 ? 'Yes' : 'No',
     }));
@@ -81,6 +89,7 @@ export default function AdminInternshipPostList() {
       { header: 'Compensation', key: 'Compensation' },
       { header: 'Working Method', key: 'Working Method' },
       { header: 'Link', key: 'Link' },
+      { header: 'Apply Type', key: 'Apply Type' },
       { header: 'Created Date', key: 'Created Date' },
       { header: 'Expired Date', key: 'Expired Date' },
       { header: 'Status', key: 'Status' },
@@ -102,14 +111,30 @@ export default function AdminInternshipPostList() {
   };
 
   const parseYesNo = (value: any) => {
-    const normalized = String(value).toLowerCase();
-    return normalized === 'yes' || normalized === 'y' || normalized === 'true' || normalized.includes('ใช่') ? 1 : 0;
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'number') return value > 0 ? 1 : 0;
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'y', 'on', 'checked', 'ใช่'].includes(normalized) ? 1 : 0;
   };
 
   const parseDateValue = (value: any) => {
     if (!value) return '';
-    if (value instanceof Date) return value.toISOString().split('T')[0];
-    return String(value);
+    const toLocalDateString = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    if (value instanceof Date) return toLocalDateString(value);
+
+    const raw = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return toLocalDateString(parsed);
+
+    return raw;
   };
 
   const handleImportPosts = async (file: File) => {
@@ -127,6 +152,7 @@ export default function AdminInternshipPostList() {
         internship_compensation: String(row['Compensation'] || ''),
         internship_working_method: String(row['Working Method'] || ''),
         internship_link: String(row['Link'] || ''),
+        internship_apply_type: String(row['Apply Type'] || row['apply_type'] || '').trim().toLowerCase(),
         internship_create_date: parseDateValue(row['Created Date'] || ''),
         internship_expired_date: parseDateValue(row['Expired Date'] || ''),
         internship_status: parseStatus(row['Status']),
@@ -141,7 +167,10 @@ export default function AdminInternshipPostList() {
       alert('นำเข้าข้อมูลสำเร็จ และอัปเดตลงฐานข้อมูลเรียบร้อยแล้ว');
     } catch (error) {
       console.error('Error importing posts:', error);
-      alert('ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
+      const backendMessage = axios.isAxiosError(error)
+        ? (error.response?.data?.message || error.response?.data?.error)
+        : '';
+      alert(backendMessage || 'ไม่สามารถนำเข้าไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์หรือข้อมูลในไฟล์ Excel');
     }
   };
 

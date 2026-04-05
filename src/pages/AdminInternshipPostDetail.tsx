@@ -27,6 +27,13 @@ type PostResponse = {
   mou?: number;
 };
 
+const toMouFlag = (value: unknown): 0 | 1 => {
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (typeof value === 'number') return value > 0 ? 1 : 0;
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'on', 'checked', 'ใช่'].includes(normalized) ? 1 : 0;
+};
+
 const PROVINCES = [
   'กรุงเทพมหานคร','กระบี่','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร','ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท',
   'ชัยภูมิ','ชุมพร','ตรัง','ตราด','ตาก','นครนายก','นครปฐม','นครพนม','นครราชสีมา','นครศรีธรรมราช',
@@ -129,7 +136,7 @@ export default function AdminInternshipPostDetail() {
           internship_apply_type: (post as any).internship_apply_type || 'link',
           internship_poster: post.internship_poster || '',
           internship_status: post.internship_status ?? 1,
-          mou: post.mou ?? 0
+          mou: toMouFlag(post.mou)
         });
         setCompanySearch(post.company_name || '');
         setCompanies(companiesRes.data);

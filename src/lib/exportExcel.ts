@@ -6,10 +6,18 @@ export type ExcelColumn<T> = {
 };
 
 export function exportDataToExcel<T>(rows: T[], filename: string, columns: ExcelColumn<T>[]) {
+  const formatLocalDate = (value: Date) => {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const sheetData = rows.map((row) => {
     const record: Record<string, unknown> = {};
     columns.forEach((column) => {
-      record[column.header] = (row as any)[column.key] ?? '';
+      const value = (row as any)[column.key];
+      record[column.header] = value instanceof Date ? formatLocalDate(value) : (value ?? '');
     });
     return record;
   });

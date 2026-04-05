@@ -58,15 +58,7 @@ const ensureReviewInternshipPositionColumn = async () => {
   }
 };
 
-const ensureReviewUniquePerPositionIndex = async () => {
-  const [indexes] = await db.query("SHOW INDEX FROM review WHERE Key_name = 'uniq_review_student_company_position'");
-  if (indexes.length === 0) {
-    await db.query(
-      "ALTER TABLE review ADD UNIQUE KEY uniq_review_student_company_position (student_id, company_id, review_internship_position_title)"
-    );
-    console.log('✅ Added unique index uniq_review_student_company_position on review');
-  }
-};
+
 
 // test connection
 (async () => {
@@ -78,7 +70,6 @@ const ensureReviewUniquePerPositionIndex = async () => {
     try {
       await ensureStudentInternshipPostsNameColumn();
       await ensureReviewInternshipPositionColumn();
-      await ensureReviewUniquePerPositionIndex();
     } catch (schemaErr) {
       console.error('❌ Failed to ensure schema columns:', schemaErr);
     }
@@ -195,6 +186,7 @@ app.get("/api/users", async (req, res) => {
           a.account_id,
           COALESCE(ad.admin_name, a.username) AS username,
           ad.admin_name,
+          ad.email,
           a.role,
           a.account_status,
           NULL AS student_id,
@@ -203,9 +195,8 @@ app.get("/api/users", async (req, res) => {
           NULL AS student_major,
           NULL AS internship_company_id,
           NULL AS internship_company_name
-        FROM account a
-        LEFT JOIN admin ad ON ad.account_id = a.account_id
-        WHERE a.role <> 'Student'
+        FROM admin ad
+        LEFT JOIN account a ON ad.account_id = a.account_id
         ORDER BY ad.admin_id DESC, a.account_id DESC
         `
       );
@@ -221,6 +212,7 @@ app.get("/api/users", async (req, res) => {
           a.account_status,
           s.student_id,
           s.student_name,
+          s.email,
           s.student_faculty,
           s.student_major,
           ios.company_id as internship_company_id,
@@ -262,6 +254,7 @@ app.get("/api/users/:id", async (req, res) => {
         a.account_id,
         COALESCE(ad.admin_name, a.username) AS username,
         ad.admin_name,
+        COALESCE(NULLIF(TRIM(s.email), ''), NULLIF(TRIM(ad.email), '')) AS email,
         a.role,
         a.account_status,
         s.student_id,
@@ -305,6 +298,7 @@ app.get("/api/users/:id", async (req, res) => {
         a.account_status,
         s.student_id,
         s.student_name,
+        s.email AS email,
         s.student_faculty,
         s.student_major,
         ios.company_id as internship_company_id,
@@ -344,6 +338,7 @@ app.put("/api/users/:id", async (req, res) => {
       username,
       account_status,
       student_name,
+      email,
       student_faculty,
       student_major,
       internship_company_id,
@@ -388,8 +383,27 @@ app.put("/api/users/:id", async (req, res) => {
       );
 
       const [studentRows] = await db.query("SELECT student_id FROM student WHERE account_id = ? LIMIT 1", [accountIdToUse]);
+      const normalizedStudentEmailInput = String(email || '').trim();
+
+      const resolveStudentEmail = (fallbackStudentId) => {
+        if (normalizedStudentEmailInput) return normalizedStudentEmailInput;
+        if (isValidEmail(username)) return String(username).trim();
+        if (fallbackStudentId) return `${fallbackStudentId}@student.local`;
+        return `${accountIdToUse}@student.local`;
+      };
+
       if (studentRows.length > 0) {
         const studentId = studentRows[0].student_id;
+        const finalStudentEmail = resolveStudentEmail(studentId);
+        if (!isValidEmail(finalStudentEmail)) {
+          return res.status(400).json({ message: 'รูปแบบอีเมลนักศึกษาไม่ถูกต้อง' });
+        }
+
+        await db.query(
+          "UPDATE student SET student_name = ?, student_faculty = ?, student_major = ?, email = ? WHERE student_id = ?",
+          [student_name || null, student_faculty || null, student_major || null, finalStudentEmail, studentId]
+        );
+
         const selectedCompanyId = typeof internship_company_id === 'number' && internship_company_id > 0
           ? internship_company_id
           : null;
@@ -435,19 +449,45 @@ app.put("/api/users/:id", async (req, res) => {
             );
           }
         }
+      } else {
+        const fallbackStudentId = existingStudent?.student_id ? Number(existingStudent.student_id) : null;
+        const finalStudentEmail = resolveStudentEmail(fallbackStudentId);
+        if (!isValidEmail(finalStudentEmail)) {
+          return res.status(400).json({ message: 'รูปแบบอีเมลนักศึกษาไม่ถูกต้อง' });
+        }
+
+        await db.query(
+          "INSERT INTO student (student_id, student_name, student_faculty, student_major, email, account_id) VALUES (?, ?, ?, ?, ?, ?)",
+          [fallbackStudentId || null, student_name || null, student_faculty || null, student_major || null, finalStudentEmail, accountIdToUse]
+        );
       }
     } else {
       const adminDisplayName = String(student_name || username || '').trim();
+      const normalizedAdminEmail = String(email || '').trim();
+
+      if (normalizedAdminEmail && !isValidEmail(normalizedAdminEmail)) {
+        return res.status(400).json({ message: 'รูปแบบอีเมลผู้ดูแลระบบไม่ถูกต้อง' });
+      }
 
       await db.query(
         "UPDATE account SET account_status = ? WHERE account_id = ?",
         [typeof account_status === "number" ? account_status : 1, id]
       );
 
-      if (adminDisplayName) {
+      const [adminExistsRows] = await db.query(
+        'SELECT admin_id FROM admin WHERE account_id = ? LIMIT 1',
+        [id]
+      );
+
+      if (adminExistsRows.length > 0) {
         await db.query(
-          "UPDATE admin SET admin_name = ? WHERE account_id = ?",
-          [adminDisplayName, id]
+          "UPDATE admin SET admin_name = ?, email = ? WHERE account_id = ?",
+          [adminDisplayName || null, normalizedAdminEmail || null, id]
+        );
+      } else {
+        await db.query(
+          'INSERT INTO admin (account_id, admin_name, email) VALUES (?, ?, ?)',
+          [id, adminDisplayName || null, normalizedAdminEmail || null]
         );
       }
     }
@@ -507,6 +547,11 @@ app.post("/api/users/import", async (req, res) => {
       const statusRaw = String(getValue('Status', 'status', 'สถานะ') || '').trim().toLowerCase();
       const account_status = statusRaw === 'inactive' || statusRaw === '0' || statusRaw.includes('inactive') || statusRaw.includes('ปิด') ? 0 : 1;
       const studentId = Number(getValue('Student ID', 'student_id', 'รหัสนักศึกษา') || 0);
+      const normalizePossibleEmail = (value) => {
+        const text = String(value || '').trim();
+        if (!text || text === '-' || text.toLowerCase() === 'null') return '';
+        return text;
+      };
 
       return {
         accountId,
@@ -515,6 +560,7 @@ app.post("/api/users/import", async (req, res) => {
         account_status,
         student_id: studentId,
         student_name: String(getValue('Name', 'name', 'student_name', 'ชื่อ-นามสกุล', 'ชื่อ') || '').trim(),
+        email: normalizePossibleEmail(getValue('Email', 'email', 'อีเมล')),
         student_faculty: String(getValue('Faculty', 'faculty', 'คณะ') || '').trim(),
         student_major: String(getValue('Major', 'major', 'สาขา', 'Program', 'program') || '').trim(),
         internship_company_id: Number(getValue('Internship Company ID', 'internship_company_id', 'รหัสบริษัทฝึกงาน') || 0) || null,
@@ -524,7 +570,9 @@ app.post("/api/users/import", async (req, res) => {
     const rowMap = new Map();
     normalizedRows.forEach((row) => {
       let key = '';
-      if (row.accountId > 0) {
+      if (row.role === 'Student' && row.student_id > 0) {
+        key = `student:${row.student_id}`;
+      } else if (row.accountId > 0) {
         key = `id:${row.accountId}`;
       } else if (row.username) {
         key = `username:${String(row.username).trim().toLowerCase()}`;
@@ -542,12 +590,25 @@ app.post("/api/users/import", async (req, res) => {
       return res.status(400).json({ message: 'No valid rows to import' });
     }
 
+    const invalidStudentRows = importedRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => row.role === 'Student' && !(Number(row.student_id) > 0));
+
+    if (invalidStudentRows.length > 0) {
+      return res.status(400).json({
+        message: 'ข้อมูลนักศึกษาไม่ถูกต้อง: ผู้ที่จะอยู่ในตาราง student ต้องมี student_id และ role = Student',
+        details: invalidStudentRows.slice(0, 20).map(({ index }) => `row ${index + 1}: missing/invalid student_id for role Student`),
+      });
+    }
+
     const [existingAccounts] = await db.query('SELECT account_id, role, username FROM account');
+    const [existingAdminRows] = await db.query('SELECT account_id, email FROM admin');
     const existingIdsByRole = {
       Admin: new Set(),
       Student: new Set(),
     };
     const existingAccountsByUsername = new Map();
+    const existingAdminAccountByEmail = new Map();
 
     const findAccountIdByStudentId = async (studentId) => {
       if (!studentId || typeof studentId !== 'number' || studentId <= 0) return null;
@@ -563,26 +624,54 @@ app.post("/api/users/import", async (req, res) => {
       existingIdsByRole[roleKey].add(row.account_id);
     });
 
+    existingAdminRows.forEach((row) => {
+      const normalizedEmail = String(row.email || '').trim().toLowerCase();
+      if (normalizedEmail) {
+        existingAdminAccountByEmail.set(normalizedEmail, row.account_id);
+      }
+    });
+
     const processedIdsByRole = {
       Admin: new Set(),
       Student: new Set(),
     };
 
     const upsertAccount = async (row) => {
-      let accountId = row.accountId > 0 ? row.accountId : null;
-      if (!accountId && row.student_id > 0) {
-        const foundAccountId = await findAccountIdByStudentId(row.student_id);
-        if (foundAccountId) {
-          accountId = foundAccountId;
+      let accountId = null;
+
+      if (row.role === 'Student') {
+        // Student import identity is based on student_id only.
+        if (row.student_id > 0) {
+          const foundAccountId = await findAccountIdByStudentId(row.student_id);
+          if (foundAccountId) {
+            accountId = foundAccountId;
+          }
+        }
+
+        if (!accountId && row.username) {
+          const normalizedUsername = String(row.username).trim().toLowerCase();
+          const foundAccountId = existingAccountsByUsername.get(normalizedUsername);
+          if (foundAccountId) {
+            accountId = foundAccountId;
+          }
+        }
+      } else {
+        // Admin import identity prefers email (unique) then falls back to account_id/username.
+        const normalizedAdminEmail = String(row.email || '').trim().toLowerCase();
+        const emailMatchedAccountId = normalizedAdminEmail
+          ? existingAdminAccountByEmail.get(normalizedAdminEmail)
+          : null;
+
+        accountId = emailMatchedAccountId || (row.accountId > 0 ? row.accountId : null);
+        if (!accountId && row.username) {
+          const normalizedUsername = String(row.username).trim().toLowerCase();
+          const foundAccountId = existingAccountsByUsername.get(normalizedUsername);
+          if (foundAccountId) {
+            accountId = foundAccountId;
+          }
         }
       }
-      if (!accountId && row.username) {
-        const normalizedUsername = String(row.username).trim().toLowerCase();
-        const foundAccountId = existingAccountsByUsername.get(normalizedUsername);
-        if (foundAccountId) {
-          accountId = foundAccountId;
-        }
-      }
+
       const existingRow = accountId ? existingAccounts.find((item) => item.account_id === accountId) : null;
 
       if (existingRow) {
@@ -613,30 +702,57 @@ app.post("/api/users/import", async (req, res) => {
       }
 
       if (row.role === 'Student' && accountId) {
-        const [studentRows] = await db.query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
+        if (!(Number(row.student_id) > 0)) {
+          throw new Error(`Invalid student_id for Student role (account ${accountId || 'new'})`);
+        }
+
+        const [studentRows] = await db.query('SELECT student_id, email FROM student WHERE account_id = ? LIMIT 1', [accountId]);
+
+        const resolveStudentEmail = (studentId, existingEmail = '') => {
+          const normalizedInputEmail = String(row.email || '').trim();
+          if (normalizedInputEmail && isValidEmail(normalizedInputEmail)) return normalizedInputEmail;
+
+          if (existingEmail && isValidEmail(existingEmail)) return existingEmail;
+          if (isValidEmail(row.username)) return String(row.username).trim();
+          const fallbackId = studentId || accountId || Date.now();
+          return `${fallbackId}@student.local`;
+        };
+
         if (studentRows.length > 0) {
-          if (row.student_id > 0) {
-            await db.query(
-              'UPDATE student SET student_id = ?, student_name = ?, student_faculty = ?, student_major = ? WHERE account_id = ?',
-              [row.student_id, row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
-            );
-          } else {
-            await db.query(
-              'UPDATE student SET student_name = ?, student_faculty = ?, student_major = ? WHERE account_id = ?',
-              [row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
-            );
-          }
+          const currentStudentId = studentRows[0].student_id;
+          const currentEmail = studentRows[0].email;
+          const nextStudentId = row.student_id > 0 ? row.student_id : currentStudentId;
+          const nextEmail = resolveStudentEmail(nextStudentId, currentEmail);
+
+          await db.query(
+            'UPDATE student SET student_id = ?, student_name = ?, student_faculty = ?, student_major = ?, email = ? WHERE account_id = ?',
+            [row.student_id, row.student_name || null, row.student_faculty || null, row.student_major || null, nextEmail, accountId]
+          );
         } else {
-          if (row.student_id > 0) {
+          let reusedExistingStudentById = false;
+          const [existingByStudentId] = await db.query(
+            'SELECT student_id FROM student WHERE student_id = ? LIMIT 1',
+            [row.student_id]
+          );
+
+          if (existingByStudentId.length > 0) {
+            const nextEmail = resolveStudentEmail(row.student_id);
             await db.query(
-              'INSERT INTO student (student_id, student_name, student_faculty, student_major, account_id) VALUES (?, ?, ?, ?, ?)',
-              [row.student_id, row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
+              'UPDATE student SET account_id = ?, student_name = ?, student_faculty = ?, student_major = ?, email = ? WHERE student_id = ?',
+              [accountId, row.student_name || null, row.student_faculty || null, row.student_major || null, nextEmail, row.student_id]
             );
+            reusedExistingStudentById = true;
+          }
+
+          if (reusedExistingStudentById) {
+            // Student row already existed with this student_id; linked it to the account above.
           } else {
-            await db.query(
-              'INSERT INTO student (student_name, student_faculty, student_major, account_id) VALUES (?, ?, ?, ?)',
-              [row.student_name || null, row.student_faculty || null, row.student_major || null, accountId]
-            );
+          const nextEmail = resolveStudentEmail(row.student_id);
+
+          await db.query(
+            'INSERT INTO student (student_id, student_name, student_faculty, student_major, email, account_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [row.student_id, row.student_name || null, row.student_faculty || null, row.student_major || null, nextEmail, accountId]
+          );
           }
         }
 
@@ -664,24 +780,30 @@ app.post("/api/users/import", async (req, res) => {
       }
 
       if (row.role !== 'Student' && accountId) {
-        await db.query('UPDATE admin SET admin_name = ? WHERE account_id = ?', [row.username || null, accountId]);
+        const normalizedAdminEmail = String(row.email || '').trim();
+        if (normalizedAdminEmail && !isValidEmail(normalizedAdminEmail)) {
+          throw new Error(`Invalid admin email for account ${accountId}`);
+        }
+
+        const [adminExistsRows] = await db.query('SELECT admin_id FROM admin WHERE account_id = ? LIMIT 1', [accountId]);
+        if (adminExistsRows.length > 0) {
+          await db.query(
+            'UPDATE admin SET admin_name = ?, email = ? WHERE account_id = ?',
+            [row.username || null, normalizedAdminEmail || null, accountId]
+          );
+        } else {
+          await db.query(
+            'INSERT INTO admin (account_id, admin_name, email) VALUES (?, ?, ?)',
+            [accountId, row.username || null, normalizedAdminEmail || null]
+          );
+        }
+
+        if (normalizedAdminEmail) {
+          existingAdminAccountByEmail.set(normalizedAdminEmail.toLowerCase(), accountId);
+        }
       }
 
       return accountId;
-    };
-
-    const deleteAccount = async (accountId) => {
-      const [studentRows] = await db.query('SELECT student_id FROM student WHERE account_id = ? LIMIT 1', [accountId]);
-      const studentId = studentRows.length > 0 ? studentRows[0].student_id : null;
-      if (studentId) {
-        await db.query('DELETE FROM quiz_result WHERE student_id = ?', [studentId]);
-        await db.query('DELETE FROM career_fit_quiz WHERE student_id = ?', [studentId]);
-        await db.query('DELETE FROM favorite WHERE student_id = ?', [studentId]);
-        await db.query('DELETE FROM review WHERE student_id = ?', [studentId]);
-        await db.query('DELETE FROM internship_of_student WHERE student_id = ?', [studentId]);
-        await db.query('DELETE FROM student WHERE student_id = ?', [studentId]);
-      }
-      await db.query('DELETE FROM account WHERE account_id = ?', [accountId]);
     };
 
     for (const row of importedRows) {
@@ -691,19 +813,37 @@ app.post("/api/users/import", async (req, res) => {
       }
     }
 
-    let deletedCount = 0;
-    for (const roleKey of ['Admin', 'Student']) {
-      if (!importedRows.some((row) => row.role === roleKey)) continue;
-      for (const existingId of existingIdsByRole[roleKey]) {
-        if (!processedIdsByRole[roleKey].has(existingId)) {
-          await deleteAccount(existingId);
-          deletedCount++;
-        }
-      }
-    }
+    // Keep import idempotent and safe: do not auto-delete accounts not present in the file.
+    // Auto-deletion can break foreign keys (e.g., company -> admin) and is risky for partial imports.
+    const deletedCount = 0;
 
-    const totalCount = processedIdsByRole.Admin.size + processedIdsByRole.Student.size;
-    res.json({ message: 'Users imported', updatedCount: totalCount, deletedCount });
+    const uniqueAccountCount = processedIdsByRole.Admin.size + processedIdsByRole.Student.size;
+    const processedRowCount = importedRows.length;
+    const uniqueStudentCount = new Set(
+      importedRows
+        .filter((row) => row.role === 'Student' && Number(row.student_id) > 0)
+        .map((row) => Number(row.student_id))
+    ).size;
+    const uniqueAdminCount = new Set(
+      importedRows
+        .filter((row) => row.role === 'Admin')
+        .map((row) => Number(row.accountId || 0))
+        .filter((id) => id > 0)
+    ).size;
+
+    const updatedCount = importedRows.some((row) => row.role === 'Student')
+      ? (uniqueStudentCount || processedRowCount)
+      : (uniqueAdminCount || processedRowCount);
+
+    res.json({
+      message: 'Users imported',
+      updatedCount,
+      processedRowCount,
+      uniqueStudentCount,
+      uniqueAdminCount,
+      uniqueAccountCount,
+      deletedCount,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: err?.message || 'Database error' });
@@ -924,10 +1064,42 @@ app.post('/api/companies/import', async (req, res) => {
     };
 
     const normalizeDate = (value) => {
-      if (!value) return null;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return null;
-      return date.toISOString().slice(0, 10);
+      if (value === undefined || value === null || value === '') return null;
+
+      if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) return null;
+        return value.toISOString().slice(0, 10);
+      }
+
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        // Excel serial date (base 1899-12-30)
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const parsed = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return parsed.toISOString().slice(0, 10);
+      }
+
+      const text = String(value).trim();
+      if (!text) return null;
+
+      const dmYMatch = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+      if (dmYMatch) {
+        const day = Number(dmYMatch[1]);
+        const month = Number(dmYMatch[2]);
+        let year = Number(dmYMatch[3]);
+
+        if (year > 2400) year -= 543; // Buddhist year to Gregorian year
+        if (year < 100) year += 2000;
+
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed.toISOString().slice(0, 10);
+        }
+      }
+
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return parsed.toISOString().slice(0, 10);
     };
 
     const normalizedRows = rows
@@ -1845,7 +2017,9 @@ app.get('/api/posts/detail/:id', async (req, res) => {
         i.internship_link,
         i.internship_apply_type,
         i.internship_poster,
+        i.internship_create_date,
         i.internship_expired_date,
+        i.internship_status,
 
         c.company_id,
         c.company_name,
@@ -2350,6 +2524,13 @@ app.post("/api/posts", async (req, res) => {
       account_id
     } = req.body;
 
+    const normalizeMou = (value) => {
+      if (typeof value === 'boolean') return value ? 1 : 0;
+      if (typeof value === 'number') return value > 0 ? 1 : 0;
+      const normalized = String(value || '').trim().toLowerCase();
+      return ['1', 'true', 'yes', 'y', 'on', 'checked', 'ใช่'].includes(normalized) ? 1 : 0;
+    };
+
     const normalizedApplyType = internship_apply_type || 'link';
     const normalizedInternshipLink = String(internship_link || '').trim();
 
@@ -2390,7 +2571,7 @@ app.post("/api/posts", async (req, res) => {
         internship_duration, internship_location, internship_compensation,
         internship_description, internship_responsibilities,
         internship_requirements, internship_expired_date || null,
-        normalizedInternshipLink || null, normalizedApplyType, internship_poster || null, internship_status ?? 1, mou ?? 0, finalAdminId
+        normalizedInternshipLink || null, normalizedApplyType, internship_poster || null, internship_status ?? 1, normalizeMou(mou), finalAdminId
       ]
     );
 
@@ -2426,6 +2607,13 @@ app.put("/api/posts/:id", async (req, res) => {
       mou
     } = req.body;
 
+    const normalizeMou = (value) => {
+      if (typeof value === 'boolean') return value ? 1 : 0;
+      if (typeof value === 'number') return value > 0 ? 1 : 0;
+      const normalized = String(value || '').trim().toLowerCase();
+      return ['1', 'true', 'yes', 'y', 'on', 'checked', 'ใช่'].includes(normalized) ? 1 : 0;
+    };
+
     const normalizedApplyType = internship_apply_type || 'link';
     const normalizedInternshipLink = String(internship_link || '').trim();
 
@@ -2451,7 +2639,7 @@ app.put("/api/posts/:id", async (req, res) => {
         internship_duration, internship_location, internship_compensation,
         internship_description, internship_responsibilities,
         internship_requirements, internship_expired_date || null,
-        normalizedInternshipLink || null, normalizedApplyType, internship_poster || null, internship_status, mou, id
+        normalizedInternshipLink || null, normalizedApplyType, internship_poster || null, internship_status, normalizeMou(mou), id
       ]
     );
 
@@ -2499,15 +2687,27 @@ app.post('/api/posts/import', async (req, res) => {
     };
 
     const parseYesNo = (value) => {
+      if (typeof value === 'boolean') return value ? 1 : 0;
+      if (typeof value === 'number') return value > 0 ? 1 : 0;
       const normalized = String(value || '').trim().toLowerCase();
-      return normalized === 'yes' || normalized === 'y' || normalized === 'true' || normalized.includes('ใช่') ? 1 : 0;
+      return ['1', 'true', 'yes', 'y', 'on', 'checked', 'ใช่'].includes(normalized) ? 1 : 0;
     };
 
     const normalizeDate = (value) => {
       if (!value) return null;
+
+      if (typeof value === 'string') {
+        const raw = value.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+      }
+
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return null;
-      return date.toISOString().slice(0, 10);
+
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     };
 
     const normalizedRows = rows
@@ -2534,7 +2734,13 @@ app.post('/api/posts/import', async (req, res) => {
 
     const invalidPostRows = [];
     normalizedRows.forEach((row, index) => {
-      const applyType = row.internship_apply_type === 'email' ? 'email' : 'link';
+      const normalizedApplyType = String(row.internship_apply_type || '').trim().toLowerCase();
+      let applyType = normalizedApplyType;
+
+      if (applyType !== 'email' && applyType !== 'link') {
+        applyType = row.internship_link && isValidEmail(row.internship_link) ? 'email' : 'link';
+      }
+
       row.internship_apply_type = applyType;
 
       if (row.internship_link) {
@@ -2774,18 +2980,21 @@ app.get("/api/notifications/:student_id", async (req, res) => {
       JOIN internship_posts i 
         ON f.internship_posts_id = i.internship_posts_id
       WHERE f.student_id = ?
-        AND i.internship_expired_date >= CURDATE()
+        AND i.internship_status = 1
+        AND DATE(i.internship_expired_date) > CURDATE()
     `, [queryId]);
 
     const today = new Date();
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
     const notifications = rows
       .map(post => {
         const expired = new Date(post.internship_expired_date);
-        const diffTime = expired.getTime() - today.getTime();
+        const expiredOnly = new Date(expired.getFullYear(), expired.getMonth(), expired.getDate());
+        const diffTime = expiredOnly.getTime() - todayOnly.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays <= 3 && diffDays >= 0) {
+        if (diffDays <= 3 && diffDays >= 1) {
           return {
             ...post,
             daysLeft: diffDays
@@ -2815,18 +3024,20 @@ app.get("/api/admin/notifications", async (req, res) => {
         internship_expired_date
       FROM internship_posts
       WHERE internship_status = 1
-        AND internship_expired_date >= CURDATE()
+        AND DATE(internship_expired_date) > CURDATE()
     `);
 
     const today = new Date();
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
     const notifications = rows
       .map(post => {
         const expired = new Date(post.internship_expired_date);
-        const diffTime = expired.getTime() - today.getTime();
+        const expiredOnly = new Date(expired.getFullYear(), expired.getMonth(), expired.getDate());
+        const diffTime = expiredOnly.getTime() - todayOnly.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays <= 7 && diffDays >= 0) {  // แสดงถ้าเหลือ 7 วัน
+        if (diffDays <= 7 && diffDays >= 1) {  // แสดงถ้าเหลือ 7 ถึง 1 วัน
           return {
             ...post,
             daysLeft: diffDays

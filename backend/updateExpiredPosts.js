@@ -24,7 +24,7 @@ async function updateExpiredPosts() {
       `UPDATE internship_posts
        SET internship_status = 0
        WHERE internship_expired_date IS NOT NULL
-         AND internship_expired_date < ?
+         AND DATE(internship_expired_date) <= ?
          AND internship_status <> 0`,
       [thailandDate]
     );
@@ -33,7 +33,7 @@ async function updateExpiredPosts() {
       `UPDATE internship_posts
        SET internship_status = 1
        WHERE internship_expired_date IS NOT NULL
-         AND internship_expired_date >= ?
+         AND DATE(internship_expired_date) > ?
          AND internship_status <> 1`,
       [thailandDate]
     );

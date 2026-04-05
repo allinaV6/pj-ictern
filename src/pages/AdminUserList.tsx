@@ -15,6 +15,7 @@ export default function AdminUserList() {
     account_status: number | null;
     student_id: number | null;
     student_name: string | null;
+    email?: string | null;
     student_faculty: string | null;
     student_major: string | null;
     internship_company_id: number | null;
@@ -56,6 +57,7 @@ export default function AdminUserList() {
         return {
           'Admin ID': u.admin_id ?? '-',
           'Name': u.username,
+          'Email': u.email ?? '-',
           'Role': 'Admin',
           'Status': (u.account_status ?? 1) === 1 ? 'Active' : 'Inactive',
         };
@@ -66,6 +68,7 @@ export default function AdminUserList() {
         'Status': (u.account_status ?? 1) === 1 ? 'Active' : 'Inactive',
         'Student ID': u.student_id ?? '-',
         'Name': u.student_name ?? '-',
+        'Email': u.email ?? '-',
         'Faculty': u.student_faculty ?? '-',
         'Major': u.student_major ?? '-',
         'Internship Company ID': u.internship_company_id ?? '-',
@@ -77,6 +80,7 @@ export default function AdminUserList() {
       ? [
           { header: 'Admin ID', key: 'Admin ID' },
           { header: 'Name', key: 'Name' },
+          { header: 'Email', key: 'Email' },
           { header: 'Role', key: 'Role' },
           { header: 'Status', key: 'Status' },
         ]
@@ -86,6 +90,7 @@ export default function AdminUserList() {
           { header: 'Status', key: 'Status' },
           { header: 'Student ID', key: 'Student ID' },
           { header: 'Name', key: 'Name' },
+          { header: 'Email', key: 'Email' },
           { header: 'Faculty', key: 'Faculty' },
           { header: 'Major', key: 'Major' },
           { header: 'Internship Company ID', key: 'Internship Company ID' },
@@ -164,6 +169,7 @@ export default function AdminUserList() {
           account_status: parseStatus(getValue('Status', 'status')),
           student_id: parseNumber(getValue('Student ID', 'student_id')),
           student_name: name,
+          email: String(getValue('Email', 'email', 'อีเมล') || ''),
           student_faculty: String(getValue('Faculty', 'faculty', 'คณะ') || ''),
           student_major: String(getValue('Major', 'major', 'สาขา', 'Program', 'program') || ''),
           internship_company_id: parseNumber(getValue('Internship Company ID', 'internship_company_id', 'รหัสบริษัทฝึกงาน')),
@@ -271,6 +277,7 @@ export default function AdminUserList() {
         if (isAdminView) {
           return (
             (u.username || '').toLowerCase().includes(q) ||
+            (u.email || '').toLowerCase().includes(q) ||
             (u.role || '').toLowerCase().includes(q) ||
             String(u.account_id).includes(q)
           );
