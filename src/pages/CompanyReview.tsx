@@ -3,6 +3,17 @@ import Navbar from '../components/Navbar';
 import { Star, Info } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 
+type ReviewEligibilityResponse = {
+  canReview: boolean;
+  internship_position_title?: string | null;
+  reason?: string;
+};
+
+type CompanyResponse = {
+  company_id: number;
+  company_name: string;
+};
+
 type RatingKey =
   | "work_challenge"
   | "work_creativity"
@@ -24,13 +35,15 @@ export default function CompanyReview() {
   // ✅ ดึง user จาก localStorage
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
-  const companyName = "Creative Digital Agency Co., Ltd.";
-  const jobTitle = "UX/UI Design Intern";
-  const duration = "6 เดือน";
+  const [companyName, setCompanyName] = useState<string>('');
+  const [internshipPositionTitle, setInternshipPositionTitle] = useState<string>('');
 
   const [comment, setComment] = useState<string>("");
   const [canReview, setCanReview] = useState(false);
   const [checkingEligibility, setCheckingEligibility] = useState(true);
+  const [eligibilityReason, setEligibilityReason] = useState<string>('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [ratings, setRatings] = useState<Record<RatingKey, number>>({
     work_challenge: 0,
@@ -66,7 +79,7 @@ export default function CompanyReview() {
   };
 
   useEffect(() => {
-    const checkEligibility = async () => {
+    const loadReviewContext = async () => {
       try {
         const companyId = Number(id);
         const userId = user?.student_id || user?.admin_id || user?.user_id;
@@ -74,25 +87,41 @@ export default function CompanyReview() {
 
         if (!companyId || !userId) {
           setCanReview(false);
+          setCheckingEligibility(false);
           return;
         }
 
-        const res = await fetch(`http://localhost:5000/api/reviews/eligibility/${companyId}?student_id=${userId}&user_type=${userType}`);
-        const data = await res.json();
+        const [companyRes, eligibilityRes] = await Promise.all([
+          fetch(`http://localhost:5000/api/company/${companyId}`),
+          fetch(`http://localhost:5000/api/reviews/eligibility/${companyId}?student_id=${userId}&user_type=${userType}`)
+        ]);
+
+        if (companyRes.ok) {
+          const companyData: CompanyResponse = await companyRes.json();
+          setCompanyName(companyData.company_name || '');
+        }
+
+        const data: ReviewEligibilityResponse = await eligibilityRes.json();
         setCanReview(Boolean(data?.canReview));
+        setInternshipPositionTitle(data?.internship_position_title || '');
+        setEligibilityReason(data?.reason || '');
       } catch (err) {
         console.error(err);
         setCanReview(false);
+        setEligibilityReason('');
       } finally {
         setCheckingEligibility(false);
       }
     };
 
-    checkEligibility();
+    loadReviewContext();
   }, [id]);
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
       const companyId = Number(id);
 
       if (!companyId) {
@@ -159,6 +188,8 @@ export default function CompanyReview() {
     } catch (err) {
       console.error(err);
       alert("เชื่อมต่อ server ไม่ได้");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -194,7 +225,7 @@ export default function CompanyReview() {
         </button>
 
         <div className="absolute left-72 top-1/2 -translate-y-1/2 hidden group-hover:block z-20 w-72 rounded-lg bg-[#0f172a] text-white shadow-2xl px-4 py-3 text-sm leading-relaxed">
-          สามารถรีวิวการฝึกงานกับบริษัทนี้ได้เพียง 1 ครั้ง และไม่สามารถแก้ไขภายหลังได้
+          สามารถรีวิวได้เพียง 1 ครั้งต่อ 1 ตำแหน่งฝึกงาน หากเปลี่ยนตำแหน่งในบริษัทเดิมจะรีวิวใหม่ได้อีกครั้ง
         </div>
       </div>
 
@@ -222,6 +253,13 @@ export default function CompanyReview() {
           <div className="max-w-6xl mx-auto px-4 py-16 text-center">
             <h1 className="text-2xl font-bold text-blue-900 mb-3">ไม่มีสิทธิ์เขียนรีวิว</h1>
             <p className="text-gray-600 mb-6">เฉพาะนักศึกษาที่เคยฝึกงานกับบริษัทนี้เท่านั้นที่สามารถเขียนรีวิวได้</p>
+            {eligibilityReason ? (
+              <p className="mb-6 inline-block rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg">
+                {eligibilityReason === 'already reviewed this position'
+                  ? 'คุณได้รีวิวตำแหน่งนี้ไปแล้ว'
+                  : 'ระบบไม่พบตำแหน่งฝึกงานปัจจุบันของคุณสำหรับบริษัทนี้'}
+              </p>
+            ) : null}
             <Link to={`/company/${id}`} className="inline-block bg-blue-900 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-800">กลับไปหน้าบริษัท</Link>
           </div>
         </div>
@@ -232,11 +270,10 @@ export default function CompanyReview() {
       <div className="bg-blue-900 text-white py-10 px-4 mb-8">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold mb-3">
-            เขียนรีวิวบริษัท {companyName}
+            เขียนรีวิวบริษัท {companyName || '-'}
           </h1>
           <div className="flex gap-6 text-base text-blue-200">
-            <span>ตำแหน่ง: {jobTitle}</span>
-            <span>ระยะเวลา: {duration}</span>
+            <span>ตำแหน่ง: {internshipPositionTitle || '-'}</span>
           </div>
         </div>
       </div>
@@ -294,14 +331,54 @@ export default function CompanyReview() {
             </Link>
 
             <button
-              onClick={handleSubmit}
-              className="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800"
+              onClick={() => setShowConfirmModal(true)}
+              className="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
             >
-              ยืนยัน
+              {isSubmitting ? 'กำลังส่ง...' : 'ยืนยัน'}
             </button>
           </div>
         </div>
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowConfirmModal(false)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-center text-xl font-bold text-gray-900">ยืนยันการส่งความคิดเห็น</h3>
+            <p className="mt-3 text-center text-sm text-gray-600">
+              เมื่อกดยืนยัน ระบบจะส่งรีวิวของคุณและจะไม่สามารถแก้ไขภายหลังได้
+            </p>
+            <div className="mt-4 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white">
+              <p className="font-semibold">โปรดตรวจสอบก่อนยืนยัน</p>
+              <p className="mt-1 text-slate-200">
+                คุณสามารถเขียนรีวิวได้เพียง 1 ครั้งต่อตำแหน่งฝึกงาน และไม่สามารถแก้ไขได้
+              </p>
+            </div>
+            <div className="mt-6 flex gap-3 justify-center">
+              <button
+                type="button"
+                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isSubmitting}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="px-6 py-2 rounded-lg bg-blue-900 text-white font-semibold hover:bg-blue-800 disabled:opacity-60"
+                onClick={async () => {
+                  setShowConfirmModal(false);
+                  await handleSubmit();
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'กำลังส่ง...' : 'ยืนยัน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
       )}
     </>

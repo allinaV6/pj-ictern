@@ -356,7 +356,7 @@ export default function DetailCompany() {
                </div>
              </h2>
              {eligibilityChecked && canReview ? (
-               <Link to={`/company/${id}/review`} className="bg-[#cccccc] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-gray-400 transition-colors">
+               <Link to={`/company/${id}/review`} className="bg-blue-900 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition-colors shadow-sm">
                  เขียนรีวิวของคุณ
                </Link>
              ) : (
@@ -376,9 +376,14 @@ export default function DetailCompany() {
 
                   {/* HEADER */}
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-blue-900">
-                      {maskReviewerName(review.reviewer_name)}
-                    </h3>
+                    <div>
+                      <h3 className="font-bold text-blue-900">
+                        {maskReviewerName(review.reviewer_name)}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        ตำแหน่งฝึกงาน: {review.internship_position_title || '-'}
+                      </p>
+                    </div>
 
                     <div className="text-yellow-500 font-bold flex items-center gap-2">
                       <div className="flex items-center gap-1">

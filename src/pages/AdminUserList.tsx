@@ -28,12 +28,22 @@ export default function AdminUserList() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
-  const [openMenuAccountId, setOpenMenuAccountId] = useState<number | null>(null);
+  const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'students' | 'admins'>('students');
   const [importExportOpen, setImportExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isAdminView = viewMode === 'admins';
   const tableGridClass = isAdminView ? 'grid-cols-[1.2fr_2.5fr_1fr_56px]' : 'grid-cols-[1.2fr_2.5fr_1.5fr_1fr_1fr_56px]';
+
+  const getUserKey = (u: (typeof users)[number]) =>
+    typeof u.account_id === 'number' && Number.isFinite(u.account_id)
+      ? `account-${u.account_id}`
+      : `student-${u.student_id ?? 'unknown'}`;
+
+  const getUserDetailTarget = (u: (typeof users)[number]) =>
+    viewMode === 'admins'
+      ? String(u.account_id ?? '')
+      : String(u.student_id ?? u.account_id ?? '');
 
   const handleExportUsers = () => {
     if (filteredUsers.length === 0) {
@@ -51,7 +61,7 @@ export default function AdminUserList() {
         };
       }
       return {
-        'Account ID': u.account_id,
+        'Account ID': u.account_id ?? u.student_id ?? '-',
         'Role': (u as any).role || 'Student',
         'Status': (u.account_status ?? 1) === 1 ? 'Active' : 'Inactive',
         'Student ID': u.student_id ?? '-',
@@ -315,8 +325,11 @@ export default function AdminUserList() {
     if (!confirm('ยืนยันการลบผู้ใช้นี้?')) return;
     try {
       await axios.delete(`http://localhost:5000/api/users/${accountId}`);
-      setUsers((prev) => prev.filter((u) => u.account_id !== accountId));
-      setOpenMenuAccountId(null);
+      setUsers((prev) => prev.filter((u) => {
+        const targetId = u.account_id ?? u.student_id;
+        return targetId !== accountId;
+      }));
+      setOpenMenuKey(null);
     } catch (e) {
       console.error(e);
       alert('ลบไม่สำเร็จ');
@@ -334,7 +347,7 @@ export default function AdminUserList() {
       <div
         className="max-w-6xl mx-auto px-4 py-8"
         onClick={() => {
-          setOpenMenuAccountId(null);
+          setOpenMenuKey(null);
           setImportExportOpen(false);
         }}
       >
@@ -471,11 +484,14 @@ export default function AdminUserList() {
           ) : (
             pageItems.map((u, idx) => {
               const status = u.account_status ?? 1;
-              const isMenuOpen = openMenuAccountId === u.account_id;
-              const canOpenDetail = typeof u.account_id === 'number' && Number.isFinite(u.account_id);
+              const isMenuOpen = openMenuKey === getUserKey(u);
+              const canOpenDetail = viewMode === 'admins'
+                ? typeof u.account_id === 'number' && Number.isFinite(u.account_id)
+                : typeof u.student_id === 'number' && Number.isFinite(u.student_id);
               const rowKey = viewMode === 'admins'
                 ? `admin-${u.admin_id ?? u.account_id ?? idx}`
                 : `student-${u.student_id ?? u.account_id ?? idx}`;
+              const detailTarget = getUserDetailTarget(u);
               return (
                 <div
                   key={rowKey}
@@ -483,7 +499,7 @@ export default function AdminUserList() {
                   onClick={(e) => {
                     e.stopPropagation();
                     if (canOpenDetail) {
-                      navigate(`/admin/users/${u.account_id}`);
+                      navigate(`/admin/users/${detailTarget}`);
                     }
                   }}
                 >
@@ -520,7 +536,7 @@ export default function AdminUserList() {
                       className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => {
                         if (!canOpenDetail) return;
-                        setOpenMenuAccountId(isMenuOpen ? null : u.account_id);
+                        setOpenMenuKey(isMenuOpen ? null : getUserKey(u));
                       }}
                       disabled={!canOpenDetail}
                       title="เมนู"
@@ -531,13 +547,13 @@ export default function AdminUserList() {
                       <div className="absolute right-0 top-10 w-40 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20">
                         <button
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50"
-                          onClick={() => navigate(`/admin/users/${u.account_id}`)}
+                          onClick={() => navigate(`/admin/users/${detailTarget}`)}
                         >
                           แก้ไข
                         </button>
                         <button
                           className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
-                          onClick={() => handleDelete(u.account_id as number)}
+                          onClick={() => handleDelete((viewMode === 'admins' ? u.account_id : u.student_id) as number)}
                         >
                           ลบผู้ใช้
                         </button>

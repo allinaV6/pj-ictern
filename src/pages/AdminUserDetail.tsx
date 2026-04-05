@@ -9,6 +9,10 @@ type CompanyApiItem = {
   company_name: string;
 };
 
+type CompanyPostApiItem = {
+  internship_title: string;
+};
+
 type UserApiResponse = {
   account_id: number;
   username: string;
@@ -18,6 +22,7 @@ type UserApiResponse = {
   student_name: string | null;
   student_faculty: string | null;
   student_major: string | null;
+  internship_position_title: string | null;
   internship_company_id: number | null;
 };
 
@@ -26,18 +31,42 @@ export default function AdminUserDetail() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState<CompanyApiItem[]>([]);
+  const [companyPosts, setCompanyPosts] = useState<CompanyPostApiItem[]>([]);
   const [userRole, setUserRole] = useState<string>('Student');
   const [companySearch, setCompanySearch] = useState('');
+  const [postSearch, setPostSearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showPostSuggestions, setShowPostSuggestions] = useState(false);
   const [form, setForm] = useState({
     student_id: '',
     username: '',
     student_name: '',
     student_faculty: '',
     student_major: '',
+    internship_position_title: '',
     internship_company_id: '' as '' | number,
     account_status: 1
   });
+
+  const loadCompanyPosts = async (companyId: number, selectedTitle = '') => {
+    try {
+      const res = await axios.get<CompanyPostApiItem[]>(`http://localhost:5000/api/posts/company/${companyId}/titles`);
+      const posts = Array.isArray(res.data) ? res.data : [];
+      setCompanyPosts(posts);
+
+      const normalizedSelectedTitle = selectedTitle.trim();
+      setPostSearch(normalizedSelectedTitle);
+
+      if (normalizedSelectedTitle && !posts.some((post) => post.internship_title === normalizedSelectedTitle)) {
+        setForm((prev) => ({ ...prev, internship_position_title: '' }));
+        setPostSearch('');
+      }
+    } catch (error) {
+      console.error('fetch company posts error:', error);
+      setCompanyPosts([]);
+      setPostSearch('');
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -60,9 +89,17 @@ export default function AdminUserDetail() {
           student_name: u.role !== 'Student' ? (u.student_name || u.username || '') : (u.student_name || ''),
           student_faculty: u.student_faculty || '',
           student_major: u.student_major || '',
+          internship_position_title: u.internship_position_title || '',
           internship_company_id: typeof u.internship_company_id === 'number' ? u.internship_company_id : '',
           account_status: typeof u.account_status === 'number' ? u.account_status : 1
         });
+
+        if (typeof u.internship_company_id === 'number') {
+          void loadCompanyPosts(u.internship_company_id, u.internship_position_title || '');
+        } else {
+          setCompanyPosts([]);
+          setPostSearch('');
+        }
       })
       .catch((e) => {
         console.error(e);
@@ -85,13 +122,15 @@ export default function AdminUserDetail() {
         student_name: string;
         student_faculty: string;
         student_major: string;
+        internship_position_title?: string | null;
         internship_company_id?: number;
       } = {
         username: isAdmin ? form.student_name || form.username : form.username,
         account_status: form.account_status,
         student_name: form.student_name,
         student_faculty: form.student_faculty,
-        student_major: form.student_major
+        student_major: form.student_major,
+        internship_position_title: form.internship_position_title || null
       };
       if (typeof form.internship_company_id === 'number') {
         payload.internship_company_id = form.internship_company_id;
@@ -110,13 +149,25 @@ export default function AdminUserDetail() {
   };
 
   const handleSelectCompany = (c: CompanyApiItem) => {
-    setForm({ ...form, internship_company_id: c.company_id });
+    setForm({ ...form, internship_company_id: c.company_id, internship_position_title: '' });
     setCompanySearch(c.company_name);
+    setPostSearch('');
     setShowSuggestions(false);
+    void loadCompanyPosts(c.company_id);
+  };
+
+  const handleSelectPost = (post: CompanyPostApiItem) => {
+    setForm({ ...form, internship_position_title: post.internship_title });
+    setPostSearch(post.internship_title);
+    setShowPostSuggestions(false);
   };
 
   const filteredCompanies = companies.filter(c =>
     c.company_name.toLowerCase().includes(companySearch.toLowerCase())
+  );
+
+  const filteredPosts = companyPosts.filter((post) =>
+    post.internship_title.toLowerCase().includes(postSearch.toLowerCase())
   );
 
   const handleDelete = async () => {
@@ -249,6 +300,70 @@ export default function AdminUserDetail() {
                         <div className="px-4 py-2 text-gray-400 italic text-sm text-center py-4">ไม่พบบริษัทที่ค้นหา</div>
                       )}
                     </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">ตำแหน่งฝึกงาน</label>
+                  {typeof form.internship_company_id === 'number' ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                        placeholder={companyPosts.length > 0 ? 'เลือกหรือค้นหาชื่อตำแหน่งจากโพสต์ของบริษัทนี้' : 'บริษัทนี้ยังไม่มีโพสต์เปิดรับตำแหน่ง'}
+                        value={postSearch}
+                        onChange={(e) => {
+                          setPostSearch(e.target.value);
+                          setForm({ ...form, internship_position_title: '' });
+                          setShowPostSuggestions(true);
+                        }}
+                        onFocus={() => setShowPostSuggestions(true)}
+                        onBlur={() => {
+                          setTimeout(() => setShowPostSuggestions(false), 200);
+                        }}
+                        onClick={() => setShowPostSuggestions(!showPostSuggestions)}
+                        disabled={companyPosts.length === 0}
+                      />
+                      <ChevronDown
+                        size={18}
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform ${showPostSuggestions ? 'rotate-180' : ''}`}
+                      />
+                      {showPostSuggestions && companyPosts.length > 0 && (
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto">
+                          <div
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-500 border-b italic text-sm"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setForm({ ...form, internship_position_title: '' });
+                              setPostSearch('');
+                              setShowPostSuggestions(false);
+                            }}
+                          >
+                            -- ไม่ระบุ --
+                          </div>
+                          {filteredPosts.length > 0 ? (
+                            filteredPosts.map((post, index) => (
+                              <div
+                                key={`${post.internship_title}-${index}`}
+                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b last:border-none text-base"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSelectPost(post);
+                                }}
+                              >
+                                {post.internship_title}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-4 py-2 text-gray-400 italic text-sm text-center py-4">ไม่พบตำแหน่งที่ค้นหา</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-400">
+                      เลือกสถานที่ฝึกงานก่อน แล้วตำแหน่งฝึกงานจะแสดงจากโพสต์ของบริษัทนั้น
+                    </p>
                   )}
                 </div>
               </div>
