@@ -192,62 +192,63 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
             </>
           )}
           
-          {/* 🔔 Notification */}
-          <div className="relative">
-              <button 
-              className={`p-1.5 rounded-full relative transition-colors ${
-                showNotif ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-              }`}
-              aria-pressed={showNotif}
-              onClick={() => {
-                setIsDropdownOpen(false);
-                loadNotifications();
-                setShowNotif(prev => !prev);
-              }}
-            >
-              <Bell size={20} />
+          {!isOnAdminSite && (
+            <div className="relative">
+                <button 
+                className={`p-1.5 rounded-full relative transition-colors ${
+                  showNotif ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+                }`}
+                aria-pressed={showNotif}
+                onClick={() => {
+                  setIsDropdownOpen(false);
+                  loadNotifications();
+                  setShowNotif(prev => !prev);
+                }}
+              >
+                <Bell size={20} />
 
-              {/* 🔴 badge */}
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-
-            {/* 🔔 Popup */}
-            {showNotif && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-100 p-4 z-50">
-                <h3 className="font-bold mb-2">การแจ้งเตือน</h3>
-
-                {notifications.length === 0 ? (
-                  <p className="text-gray-500 text-sm">ไม่มีแจ้งเตือน</p>
-                ) : (
-                  [...notifications]
-                    .sort((a, b) => {
-                      const dayDiff = Number(a.daysLeft ?? 999) - Number(b.daysLeft ?? 999);
-                      if (dayDiff !== 0) return dayDiff;
-                      return new Date(a.internship_expired_date).getTime() - new Date(b.internship_expired_date).getTime();
-                    })
-                    .map((n, index) => (
-                    <div 
-                      key={index} 
-                      className="mb-2 p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
-                        setShowNotif(false);
-                        setSelectedPostId(n.post_id);
-                      }}
-                    >
-                      <p className="text-sm font-medium">{n.internship_title}</p>
-                      <p className="text-xs text-red-500">
-                        เหลือ {n.daysLeft} วันก่อนหมดเขต
-                      </p>
-                    </div>
-                  ))
+                {/* 🔴 badge */}
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                    {notifications.length}
+                  </span>
                 )}
-              </div>
-            )}
-          </div>
+              </button>
+
+              {/* 🔔 Popup */}
+              {showNotif && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-100 p-4 z-50">
+                  <h3 className="font-bold mb-2">การแจ้งเตือน</h3>
+
+                  {notifications.length === 0 ? (
+                    <p className="text-gray-500 text-sm">ไม่มีแจ้งเตือน</p>
+                  ) : (
+                    [...notifications]
+                      .sort((a, b) => {
+                        const dayDiff = Number(a.daysLeft ?? 999) - Number(b.daysLeft ?? 999);
+                        if (dayDiff !== 0) return dayDiff;
+                        return new Date(a.internship_expired_date).getTime() - new Date(b.internship_expired_date).getTime();
+                      })
+                      .map((n, index) => (
+                      <div 
+                        key={index} 
+                        className="mb-2 p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
+                        onClick={() => {
+                          setShowNotif(false);
+                          setSelectedPostId(n.post_id);
+                        }}
+                      >
+                        <p className="text-sm font-medium">{n.internship_title}</p>
+                        <p className="text-xs text-red-500">
+                          เหลือ {n.daysLeft} วันก่อนหมดเขต
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Profile */}
           <div className="relative">

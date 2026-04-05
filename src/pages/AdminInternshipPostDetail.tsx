@@ -43,12 +43,22 @@ const COMP_UNITS = ['ต่อเดือน', 'ต่อวัน'];
 export default function AdminInternshipPostDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const isValidHttpUrl = (value: string) => {
+    try {
+      const url = new URL(value.trim());
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companySearch, setCompanySearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [compensationAmount, setCompensationAmount] = useState('');
   const [compensationUnit, setCompensationUnit] = useState(COMP_UNITS[0]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     internship_title: '',
     company_id: '',
@@ -154,15 +164,48 @@ export default function AdminInternshipPostDetail() {
       ? [compensationAmount.trim(), compensationUnit].filter(Boolean).join(' ')
       : '';
 
-    if (
-      !formData.internship_title ||
-      !company_id ||
-      !formData.internship_working_method ||
-      !formData.internship_location ||
-      !formData.internship_duration ||
-      !formData.internship_expired_date
-    ) {
-      alert('กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วน');
+    const nextErrors: Record<string, string> = {};
+    const missingFields: string[] = [];
+    const requiredFields = [
+      { key: 'internship_title', label: 'ชื่อโพสต์ประกาศ', value: formData.internship_title },
+      { key: 'company_id', label: 'บริษัท', value: company_id },
+      { key: 'internship_working_method', label: 'รูปแบบการฝึกงาน', value: formData.internship_working_method },
+      { key: 'internship_location', label: 'จังหวัด', value: formData.internship_location },
+      { key: 'internship_duration', label: 'ระยะเวลาฝึกงาน', value: formData.internship_duration },
+      { key: 'internship_expired_date', label: 'วันที่ปิดรับสมัคร', value: formData.internship_expired_date },
+      { key: 'internship_link', label: 'ช่องทางการสมัครงาน', value: formData.internship_link },
+      { key: 'internship_description', label: 'รายละเอียดงาน', value: formData.internship_description },
+      { key: 'internship_responsibilities', label: 'หน้าที่และความรับผิดชอบ', value: formData.internship_responsibilities },
+      { key: 'internship_requirements', label: 'คุณสมบัติผู้สมัคร', value: formData.internship_requirements }
+    ];
+
+    requiredFields.forEach((field) => {
+      if (!String(field.value).trim()) {
+        nextErrors[field.key] = `กรุณากรอก${field.label}`;
+        missingFields.push(field.label);
+      }
+    });
+
+    const applyLink = formData.internship_link.trim();
+    if (applyLink) {
+      if (formData.internship_apply_type === 'email' && !isValidEmail(applyLink)) {
+        nextErrors.internship_link = 'รูปแบบอีเมลไม่ถูกต้อง';
+      }
+      if (formData.internship_apply_type !== 'email' && !isValidHttpUrl(applyLink)) {
+        nextErrors.internship_link = 'ลิงก์สมัครงานต้องขึ้นต้นด้วย http:// หรือ https://';
+      }
+    }
+
+    setErrors(nextErrors);
+
+    if (missingFields.length > 0 || nextErrors.internship_link) {
+      if (missingFields.length > 0 && nextErrors.internship_link) {
+        alert(`กรุณาตรวจสอบข้อมูล: ช่องที่ต้องกรอก ${missingFields.join(', ')} และรูปแบบช่องทางการสมัครงาน`);
+      } else if (missingFields.length > 0) {
+        alert(`กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน: ${missingFields.join(', ')}`);
+      } else {
+        alert(nextErrors.internship_link);
+      }
       return;
     }
 
@@ -234,11 +277,12 @@ export default function AdminInternshipPostDetail() {
                 </label>
                 <input
                   type="text"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 bg-white ${errors.internship_title ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                   placeholder="ชื่อโพสต์ประกาศการฝึกงาน"
                   value={formData.internship_title}
                   onChange={(e) => setFormData({ ...formData, internship_title: e.target.value })}
                 />
+                {errors.internship_title && <p className="mt-1 text-sm text-red-600">{errors.internship_title}</p>}
               </div>
 
               <div className="md:col-span-2 relative">
@@ -248,7 +292,7 @@ export default function AdminInternshipPostDetail() {
                 <div className="relative">
                   <input
                     type="text"
-                    className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                    className={`w-full border rounded-lg pl-4 pr-10 py-2.5 text-base focus:outline-none focus:ring-2 bg-white cursor-pointer ${errors.company_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                     placeholder="เลือกหรือค้นหาบริษัท"
                     value={companySearch}
                     onChange={(e) => {
@@ -285,6 +329,7 @@ export default function AdminInternshipPostDetail() {
                     )}
                   </div>
                 )}
+                {errors.company_id && <p className="mt-1 text-sm text-red-600">{errors.company_id}</p>}
               </div>
 
               <div>
@@ -292,7 +337,7 @@ export default function AdminInternshipPostDetail() {
                   รูปแบบการฝึกงาน <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 bg-white ${errors.internship_working_method ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                   value={formData.internship_working_method}
                   onChange={(e) => setFormData({ ...formData, internship_working_method: e.target.value })}
                 >
@@ -301,6 +346,7 @@ export default function AdminInternshipPostDetail() {
                   <option value="Hybrid">Hybrid</option>
                   <option value="Onsite">Onsite</option>
                 </select>
+                {errors.internship_working_method && <p className="mt-1 text-sm text-red-600">{errors.internship_working_method}</p>}
               </div>
 
               <div>
@@ -308,7 +354,7 @@ export default function AdminInternshipPostDetail() {
                   จังหวัด <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 bg-white ${errors.internship_location ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                   value={formData.internship_location}
                   onChange={(e) => setFormData({ ...formData, internship_location: e.target.value })}
                 >
@@ -317,6 +363,7 @@ export default function AdminInternshipPostDetail() {
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
+                {errors.internship_location && <p className="mt-1 text-sm text-red-600">{errors.internship_location}</p>}
               </div>
 
               <div>
@@ -325,11 +372,12 @@ export default function AdminInternshipPostDetail() {
                 </label>
                 <input
                   type="number"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 bg-white ${errors.internship_duration ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                   placeholder="ระยะเวลาฝึกงาน"
                   value={formData.internship_duration}
                   onChange={(e) => setFormData({ ...formData, internship_duration: e.target.value })}
                 />
+                {errors.internship_duration && <p className="mt-1 text-sm text-red-600">{errors.internship_duration}</p>}
               </div>
 
               <div>
@@ -362,10 +410,11 @@ export default function AdminInternshipPostDetail() {
                 </label>
                 <input
                   type="date"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 bg-white ${errors.internship_expired_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                   value={formData.internship_expired_date}
                   onChange={(e) => setFormData({ ...formData, internship_expired_date: e.target.value })}
                 />
+                {errors.internship_expired_date && <p className="mt-1 text-sm text-red-600">{errors.internship_expired_date}</p>}
               </div>
 
               <div>
@@ -386,26 +435,15 @@ export default function AdminInternshipPostDetail() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   เป็น MOU กับมหาวิทยาลัยหรือไม่
                 </label>
-                <div className="flex items-center gap-4">
-                  <label className="inline-flex items-center gap-2 text-gray-700">
-                    <input
-                      type="radio"
-                      name="mou"
-                      checked={formData.mou === 1}
-                      onChange={() => setFormData({ ...formData, mou: 1 })}
-                    />
-                    ใช่ (แสดงสัญลักษณ์ MOU)
-                  </label>
-                  <label className="inline-flex items-center gap-2 text-gray-700">
-                    <input
-                      type="radio"
-                      name="mou"
-                      checked={formData.mou === 0}
-                      onChange={() => setFormData({ ...formData, mou: 0 })}
-                    />
-                    ไม่ใช่
-                  </label>
-                </div>
+                <label className="inline-flex items-center gap-2 text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={formData.mou === 1}
+                    onChange={(e) => setFormData({ ...formData, mou: e.target.checked ? 1 : 0 })}
+                  />
+                  ใช่ (แสดงสัญลักษณ์ MOU)
+                </label>
               </div>
 
               <div className="md:col-span-2">
@@ -438,11 +476,12 @@ export default function AdminInternshipPostDetail() {
                 </div>
                 <input
                   type={formData.internship_apply_type === 'email' ? 'email' : 'text'}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 bg-white ${errors.internship_link ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                   placeholder={formData.internship_apply_type === 'email' ? 'เช่น hr@company.com' : 'เช่น https://company.com/apply'}
                   value={formData.internship_link}
                   onChange={(e) => setFormData({ ...formData, internship_link: e.target.value })}
                 />
+                {errors.internship_link && <p className="mt-1 text-sm text-red-600">{errors.internship_link}</p>}
               </div>
 
               <div className="md:col-span-2">
@@ -488,12 +527,13 @@ export default function AdminInternshipPostDetail() {
                 รายละเอียดงาน <span className="text-red-500">*</span>
               </label>
               <textarea
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[140px]"
+                className={`w-full border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 min-h-[140px] ${errors.internship_description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="ใส่คำอธิบาย..."
                 maxLength={1000}
                 value={formData.internship_description}
                 onChange={(e) => setFormData({ ...formData, internship_description: e.target.value })}
               ></textarea>
+              {errors.internship_description && <p className="mt-1 text-sm text-red-600">{errors.internship_description}</p>}
               <div className="absolute right-3 bottom-3 text-xs text-gray-400">
                 {formData.internship_description.length}/1000
               </div>
@@ -504,12 +544,13 @@ export default function AdminInternshipPostDetail() {
                 หน้าที่และความรับผิดชอบ ( 1บรรทัด ต่อ 1ข้อ ) <span className="text-red-500">*</span>
               </label>
               <textarea
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[140px]"
+                className={`w-full border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 min-h-[140px] ${errors.internship_responsibilities ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="(1บรรทัด ต่อ 1ข้อ)"
                 maxLength={1000}
                 value={formData.internship_responsibilities}
                 onChange={(e) => setFormData({ ...formData, internship_responsibilities: e.target.value })}
               ></textarea>
+              {errors.internship_responsibilities && <p className="mt-1 text-sm text-red-600">{errors.internship_responsibilities}</p>}
               <div className="absolute right-3 bottom-3 text-xs text-gray-400">
                 {formData.internship_responsibilities.length}/1000
               </div>
@@ -520,12 +561,13 @@ export default function AdminInternshipPostDetail() {
                 คุณสมบัติผู้สมัคร ( 1บรรทัด ต่อ 1ข้อ ) <span className="text-red-500">*</span>
               </label>
               <textarea
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[140px]"
+                className={`w-full border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 min-h-[140px] ${errors.internship_requirements ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="( 1บรรทัด ต่อ 1ข้อ )"
                 maxLength={1000}
                 value={formData.internship_requirements}
                 onChange={(e) => setFormData({ ...formData, internship_requirements: e.target.value })}
               ></textarea>
+              {errors.internship_requirements && <p className="mt-1 text-sm text-red-600">{errors.internship_requirements}</p>}
               <div className="absolute right-3 bottom-3 text-xs text-gray-400">
                 {formData.internship_requirements.length}/1000
               </div>

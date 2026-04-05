@@ -1,7 +1,7 @@
 import AdminLayout from '../components/AdminLayout';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import { Search, MoreVertical, Download } from 'lucide-react';
+import { Search, MoreVertical, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
@@ -9,7 +9,8 @@ import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
 export default function AdminUserList() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<Array<{
-    account_id: number;
+    admin_id?: number | null;
+    account_id: number | null;
     username: string;
     account_status: number | null;
     student_id: number | null;
@@ -23,6 +24,8 @@ export default function AdminUserList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortKey, setSortKey] = useState<'admin_id' | 'student_id' | 'name' | 'major' | 'company' | 'status' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [openMenuAccountId, setOpenMenuAccountId] = useState<number | null>(null);
@@ -41,7 +44,7 @@ export default function AdminUserList() {
     const exportRows = filteredUsers.map((u) => {
       if (isAdminView) {
         return {
-          'Account ID': u.account_id,
+          'Admin ID': u.admin_id ?? '-',
           'Name': u.username,
           'Role': 'Admin',
           'Status': (u.account_status ?? 1) === 1 ? 'Active' : 'Inactive',
@@ -62,7 +65,7 @@ export default function AdminUserList() {
 
     const columns = isAdminView
       ? [
-          { header: 'Account ID', key: 'Account ID' },
+          { header: 'Admin ID', key: 'Admin ID' },
           { header: 'Name', key: 'Name' },
           { header: 'Role', key: 'Role' },
           { header: 'Status', key: 'Status' },
@@ -228,6 +231,27 @@ export default function AdminUserList() {
     refreshUsers();
   }, [viewMode]);
 
+  useEffect(() => {
+    setSortKey(null);
+    setSortDir('asc');
+  }, [viewMode]);
+
+  const toggleSort = (key: 'admin_id' | 'student_id' | 'name' | 'major' | 'company' | 'status') => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('asc');
+  };
+
+  const renderSortIcon = (key: 'admin_id' | 'student_id' | 'name' | 'major' | 'company' | 'status') => {
+    if (sortKey !== key) return <ArrowUpDown size={14} className="text-gray-400" />;
+    return sortDir === 'asc'
+      ? <ArrowUp size={14} className="text-blue-700" />
+      : <ArrowDown size={14} className="text-blue-700" />;
+  };
+
   const filteredUsers = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     const isAdminView = viewMode === 'admins';
@@ -252,14 +276,40 @@ export default function AdminUserList() {
         const status = u.account_status ?? 1;
         return statusFilter === 'active' ? status === 1 : status === 0;
       });
-  }, [users, searchTerm, statusFilter]);
+  }, [users, searchTerm, statusFilter, viewMode]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const sortedUsers = useMemo(() => {
+    if (!sortKey) return filteredUsers;
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredUsers].sort((a, b) => {
+      if (sortKey === 'admin_id') {
+        return ((a.admin_id ?? 0) - (b.admin_id ?? 0)) * dir;
+      }
+      if (sortKey === 'student_id') {
+        return ((a.student_id ?? 0) - (b.student_id ?? 0)) * dir;
+      }
+      if (sortKey === 'status') {
+        return ((a.account_status ?? 1) - (b.account_status ?? 1)) * dir;
+      }
+
+      const getText = (u: typeof users[number]) => {
+        if (sortKey === 'name') return viewMode === 'admins' ? (u.username || '') : (u.student_name || '');
+        if (sortKey === 'major') return u.student_major || '';
+        if (sortKey === 'company') return u.internship_company_name || '';
+        return '';
+      };
+
+      return getText(a).localeCompare(getText(b), 'th', { sensitivity: 'base' }) * dir;
+    });
+  }, [filteredUsers, sortKey, sortDir, viewMode, users]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageItems = useMemo(() => {
     const offset = (currentPage - 1) * pageSize;
-    return filteredUsers.slice(offset, offset + pageSize);
-  }, [filteredUsers, currentPage, pageSize]);
+    return sortedUsers.slice(offset, offset + pageSize);
+  }, [sortedUsers, currentPage, pageSize]);
 
   const handleDelete = async (accountId: number) => {
     if (!confirm('ยืนยันการลบผู้ใช้นี้?')) return;
@@ -316,6 +366,7 @@ export default function AdminUserList() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+
           </div>
 
           <div className="flex items-center gap-2 relative">
@@ -380,18 +431,34 @@ export default function AdminUserList() {
           <div className={`grid ${tableGridClass} px-6 py-3 text-sm font-semibold text-gray-500 bg-gray-50 border-b border-gray-200`}>
             {viewMode === 'admins' ? (
               <>
-                <div>Account ID</div>
-                <div>ชื่อ-นามสกุล</div>
-                <div>สถานะ</div>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('admin_id')}>
+                  Admin ID {renderSortIcon('admin_id')}
+                </button>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('name')}>
+                  ชื่อ-นามสกุล {renderSortIcon('name')}
+                </button>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('status')}>
+                  สถานะ {renderSortIcon('status')}
+                </button>
                 <div></div>
               </>
             ) : (
               <>
-                <div>รหัสนักศึกษา</div>
-                <div>ชื่อ-นามสกุล</div>
-                <div>Program</div>
-                <div>สถานที่ฝึกงาน</div>
-                <div>สถานะ</div>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('student_id')}>
+                  รหัสนักศึกษา {renderSortIcon('student_id')}
+                </button>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('name')}>
+                  ชื่อ-นามสกุล {renderSortIcon('name')}
+                </button>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('major')}>
+                  Program {renderSortIcon('major')}
+                </button>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('company')}>
+                  สถานที่ฝึกงาน {renderSortIcon('company')}
+                </button>
+                <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('status')}>
+                  สถานะ {renderSortIcon('status')}
+                </button>
                 <div></div>
               </>
             )}
@@ -402,21 +469,27 @@ export default function AdminUserList() {
           ) : pageItems.length === 0 ? (
             <div className="px-6 py-10 text-center text-gray-500">ไม่พบข้อมูล</div>
           ) : (
-            pageItems.map((u) => {
+            pageItems.map((u, idx) => {
               const status = u.account_status ?? 1;
               const isMenuOpen = openMenuAccountId === u.account_id;
+              const canOpenDetail = typeof u.account_id === 'number' && Number.isFinite(u.account_id);
+              const rowKey = viewMode === 'admins'
+                ? `admin-${u.admin_id ?? u.account_id ?? idx}`
+                : `student-${u.student_id ?? u.account_id ?? idx}`;
               return (
                 <div
-                  key={u.account_id}
+                  key={rowKey}
                   className={`grid ${tableGridClass} px-6 py-4 text-base text-gray-800 items-center border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors duration-150`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/admin/users/${u.account_id}`);
+                    if (canOpenDetail) {
+                      navigate(`/admin/users/${u.account_id}`);
+                    }
                   }}
                 >
                   {viewMode === 'admins' ? (
                     <>
-                      <div className="text-gray-700">{u.account_id}</div>
+                      <div className="text-gray-700">{u.admin_id ?? '-'}</div>
                       <div className="font-medium">{u.username}</div>
                       <div>
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -444,13 +517,17 @@ export default function AdminUserList() {
 
                   <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <button
-                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-                      onClick={() => setOpenMenuAccountId(isMenuOpen ? null : u.account_id)}
+                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        if (!canOpenDetail) return;
+                        setOpenMenuAccountId(isMenuOpen ? null : u.account_id);
+                      }}
+                      disabled={!canOpenDetail}
                       title="เมนู"
                     >
                       <MoreVertical size={18} />
                     </button>
-                    {isMenuOpen && (
+                    {isMenuOpen && canOpenDetail && (
                       <div className="absolute right-0 top-10 w-40 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20">
                         <button
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50"
@@ -460,7 +537,7 @@ export default function AdminUserList() {
                         </button>
                         <button
                           className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
-                          onClick={() => handleDelete(u.account_id)}
+                          onClick={() => handleDelete(u.account_id as number)}
                         >
                           ลบผู้ใช้
                         </button>

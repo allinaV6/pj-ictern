@@ -6,8 +6,44 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
 
+const SIMILARITY_THRESHOLD = 0.8;
+
 export default function AdminCompanyList() {
   const navigate = useNavigate();
+  const normalizeCompanyName = (value: string) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/บริษัท|company|co\.?|ltd\.?|limited|จำกัด/g, ' ')
+      .replace(/[^\u0E00-\u0E7Fa-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const similarityScore = (a: string, b: string) => {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+
+    const aChars = Array.from(a);
+    const bChars = Array.from(b);
+    const matrix = Array.from({ length: aChars.length + 1 }, () => Array<number>(bChars.length + 1).fill(0));
+
+    for (let i = 0; i <= aChars.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= bChars.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= aChars.length; i++) {
+      for (let j = 1; j <= bChars.length; j++) {
+        const cost = aChars[i - 1] === bChars[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+
+    const distance = matrix[aChars.length][bChars.length];
+    const maxLen = Math.max(aChars.length, bChars.length);
+    return maxLen === 0 ? 1 : 1 - distance / maxLen;
+  };
   const toLogoUrl = (value: string) => {
     if (!value) return '';
     return value.startsWith('http://') || value.startsWith('https://')
@@ -209,6 +245,36 @@ export default function AdminCompanyList() {
     return arr;
   }, [filtered, sortKey, sortDir]);
 
+  const similarCompanyMap = useMemo(() => {
+    const map = new Map<number, Set<string>>();
+    const normalized = companies.map((company) => ({
+      id: company.company_id,
+      rawName: company.company_name || '',
+      normalizedName: normalizeCompanyName(company.company_name || ''),
+    }));
+
+    for (let i = 0; i < normalized.length; i++) {
+      if (!normalized[i].normalizedName) continue;
+      for (let j = i + 1; j < normalized.length; j++) {
+        if (!normalized[j].normalizedName) continue;
+        const score = similarityScore(normalized[i].normalizedName, normalized[j].normalizedName);
+        if (score >= SIMILARITY_THRESHOLD) {
+          if (!map.has(normalized[i].id)) map.set(normalized[i].id, new Set<string>());
+          if (!map.has(normalized[j].id)) map.set(normalized[j].id, new Set<string>());
+
+          map.get(normalized[i].id)?.add(normalized[j].rawName);
+          map.get(normalized[j].id)?.add(normalized[i].rawName);
+        }
+      }
+    }
+
+    return new Map<number, string[]>(
+      Array.from(map.entries()).map(([id, names]) => [id, Array.from(names).slice(0, 8)])
+    );
+  }, [companies]);
+
+  const similarCompanyIdSet = useMemo(() => new Set(similarCompanyMap.keys()), [similarCompanyMap]);
+
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const effectivePage = Math.min(currentPage, totalPages);
   const pageItems = useMemo(() => {
@@ -389,7 +455,19 @@ export default function AdminCompanyList() {
                 navigate(`/admin/companies/${company.company_id}`);
               }}
             >
-              <div className="font-medium">{company.company_name}</div>
+              <div className={`relative group font-medium ${similarCompanyIdSet.has(company.company_id) ? 'text-amber-700' : ''}`}>
+                {company.company_name}
+                {similarCompanyIdSet.has(company.company_id) && (
+                  <div className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-[24rem] max-w-[62vw] rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 shadow-lg group-hover:block">
+                    <p className="mb-1.5 text-sm font-semibold">บริษัทที่ชื่อคล้ายกันในระบบ</p>
+                    <ul className="list-disc space-y-0.5 pl-5 text-sm">
+                      {(similarCompanyMap.get(company.company_id) || []).map((name) => (
+                        <li key={`${company.company_id}-${name}`}>{name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
               <div>{company.company_type || '-'}</div>
               <div>{company.total_posts ?? 0}</div>
               <div>

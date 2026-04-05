@@ -66,8 +66,31 @@ const formatThaiDate = (value: string | undefined | null): string => {
   return parsed.toLocaleDateString('th-TH');
 };
 
+const maskNamePart = (part: string, visibleChars: number): string => {
+  const trimmed = String(part || '').trim();
+  if (!trimmed) return '';
+
+  const visible = trimmed.slice(0, visibleChars);
+  return `${visible}${'*'.repeat(5)}`;
+};
+
+const maskReviewerName = (value: string | undefined | null): string => {
+  const text = String(value || '').trim();
+  if (!text) return 'Anonymous';
+
+  const parts = text.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return maskNamePart(parts[0], 2);
+  }
+
+  const firstName = maskNamePart(parts[0], 2);
+  const lastName = maskNamePart(parts[parts.length - 1], 2);
+  return `${firstName} ${lastName}`;
+};
+
 export default function DetailCompany() {
   const { id } = useParams();
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
   const toLogoUrl = (value: string) => {
     if (!value || value === "-") return "";
     return value.startsWith("http://") || value.startsWith("https://")
@@ -86,6 +109,8 @@ export default function DetailCompany() {
   const [totalReviews, setTotalReviews] = useState(0);
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
   const [isReviewDetailModalOpen, setIsReviewDetailModalOpen] = useState(false);
+  const [canReview, setCanReview] = useState(false);
+  const [eligibilityChecked, setEligibilityChecked] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,6 +133,23 @@ export default function DetailCompany() {
         setCompany(companyRes.data);
         setActiveJobs(postsRes.data);
         setReviews(reviewRes.data);
+
+        const userId = user?.student_id || user?.admin_id || user?.user_id;
+        const userType = user?.student_id ? 'student' : 'admin';
+        if (userId) {
+          try {
+            const eligibilityRes = await axios.get(
+              `http://localhost:5000/api/reviews/eligibility/${id}?student_id=${userId}&user_type=${userType}`
+            );
+            setCanReview(Boolean(eligibilityRes.data?.canReview));
+          } catch (eligibilityErr) {
+            console.error('Eligibility check failed:', eligibilityErr);
+            setCanReview(false);
+          }
+        } else {
+          setCanReview(false);
+        }
+        setEligibilityChecked(true);
 
         if (reviewRes.data.length > 0) {
           const total = reviewRes.data.reduce(
@@ -313,9 +355,15 @@ export default function DetailCompany() {
                  )}
                </div>
              </h2>
-             <Link to={`/company/${id}/review`} className="bg-[#cccccc] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-gray-400 transition-colors">
-               เขียนรีวิวของคุณ
-             </Link>
+             {eligibilityChecked && canReview ? (
+               <Link to={`/company/${id}/review`} className="bg-[#cccccc] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-gray-400 transition-colors">
+                 เขียนรีวิวของคุณ
+               </Link>
+             ) : (
+               <button disabled className="bg-gray-300 text-white px-6 py-2 rounded-lg text-sm font-bold cursor-not-allowed">
+                 ไม่มีสิทธิ์เขียนรีวิว
+               </button>
+             )}
           </div>
 
           <div className="space-y-4">
@@ -329,23 +377,39 @@ export default function DetailCompany() {
                   {/* HEADER */}
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-blue-900">
-                      Anonymous
+                      {maskReviewerName(review.reviewer_name)}
                     </h3>
 
                     <div className="text-yellow-500 font-bold flex items-center gap-2">
                       <div className="flex items-center gap-1">
                         <Star size={16} className="fill-current" /> {review.rating}
                       </div>
-                      <button
-                        onClick={() => {
-                          setSelectedReview(review);
-                          setIsReviewDetailModalOpen(true);
-                        }}
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition-colors"
-                        title="ดูรายละเอียด"
-                      >
-                        <Info size={16} />
-                      </button>
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition-colors"
+                          title="ดูรายละเอียดคะแนน"
+                        >
+                          <Info size={16} />
+                        </button>
+
+                        <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-30 w-56 rounded-lg bg-[#0b1320] text-white shadow-2xl border border-slate-800 p-3">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-gray-200">Work</span>
+                              <span className="text-yellow-400 font-semibold">{Number(review.review_work_rating || 0).toFixed(1)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-gray-200">Life</span>
+                              <span className="text-yellow-400 font-semibold">{Number(review.review_life_rating || 0).toFixed(1)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-gray-200">Social</span>
+                              <span className="text-yellow-400 font-semibold">{Number(review.review_commu_rating || 0).toFixed(1)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

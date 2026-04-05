@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import Navbar from './Navbar';
-import { Home, FileText, Building2, Users, Briefcase, ChevronRight, X } from 'lucide-react';
+import { Home, FileText, Building2, Users, Briefcase, ChevronRight, X, ArrowLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 type Props = {
@@ -48,7 +48,7 @@ export default function AdminLayout({ children }: Props) {
       )}
 
       <div
-        className={`fixed top-0 left-0 h-full w-80 bg-white shadow-2xl border-r border-gray-100 transform transition-transform duration-300 z-50 ${
+        className={`fixed top-0 left-0 h-full w-80 bg-white shadow-2xl border-r border-gray-100 transform transition-transform duration-300 z-50 flex flex-col ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -70,47 +70,59 @@ export default function AdminLayout({ children }: Props) {
           </button>
         </div>
 
-        <div className="p-4 space-y-2">
-          {canSeeDashboard && (
-            <SidebarItem
-              icon={<Home size={20} />}
-              label="Dashboard"
-              active={isDashboard}
-              onClick={() => navigate('/admin/dashboard')}
-            />
-          )}
-          {canSeePosts && (
-            <SidebarItem
-              icon={<FileText size={20} />}
-              label="Internship Post"
-              active={isInternshipPosts}
-              onClick={() => navigate('/admin/internship-posts')}
-            />
-          )}
-          {canSeeCompanies && (
-            <SidebarItem
-              icon={<Building2 size={20} />}
-              label="Company"
-              active={isCompanies}
-              onClick={() => navigate('/admin/companies')}
-            />
-          )}
-          {canSeeUsers && (
-            <SidebarItem
-              icon={<Users size={20} />}
-              label="User Management"
-              active={isUsers}
-              onClick={() => navigate('/admin/users')}
-            />
-          )}
-          {canSeePositions && (
-            <SidebarItem
-              icon={<Briefcase size={20} />}
-              label="Position Management"
-              active={isPositions}
-              onClick={() => navigate('/admin/positions')}
-            />
-          )}
+        <div className="flex-1 flex flex-col justify-between p-4">
+          <div className="space-y-2">
+            {canSeeDashboard && (
+              <SidebarItem
+                icon={<Home size={20} />}
+                label="Dashboard"
+                active={isDashboard}
+                onClick={() => navigate('/admin/dashboard')}
+              />
+            )}
+            {canSeePosts && (
+              <SidebarItem
+                icon={<FileText size={20} />}
+                label="Internship Post"
+                active={isInternshipPosts}
+                onClick={() => navigate('/admin/internship-posts')}
+              />
+            )}
+            {canSeeCompanies && (
+              <SidebarItem
+                icon={<Building2 size={20} />}
+                label="Company"
+                active={isCompanies}
+                onClick={() => navigate('/admin/companies')}
+              />
+            )}
+            {canSeeUsers && (
+              <SidebarItem
+                icon={<Users size={20} />}
+                label="User Management"
+                active={isUsers}
+                onClick={() => navigate('/admin/users')}
+              />
+            )}
+            {canSeePositions && (
+              <SidebarItem
+                icon={<Briefcase size={20} />}
+                label="Position Management"
+                active={isPositions}
+                onClick={() => navigate('/admin/positions')}
+              />
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-gray-100">
+            <button
+              onClick={() => navigate('/posts')}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-blue-700 bg-blue-50 hover:bg-blue-100 font-medium"
+            >
+              <ArrowLeft size={20} />
+              <span>Back to User Site</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

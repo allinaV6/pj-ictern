@@ -26,6 +26,18 @@ const db = mysql.createPool({
 
 const DEFAULT_IMPORTED_USER_PASSWORD = "123456";
 
+const normalizePhone = (value) => String(value || "").replace(/[\s()-]/g, "").trim();
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+const isValidPhone = (value) => /^(?:0\d{8,9}|\+66\d{8,9})$/.test(normalizePhone(value));
+const isValidHttpUrl = (value) => {
+  try {
+    const url = new URL(String(value || "").trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 // test connection
 (async () => {
   try {
@@ -135,40 +147,65 @@ app.get("/api/users", async (req, res) => {
     const roleParam = typeof req.query.role === 'string' ? req.query.role.toLowerCase() : 'students';
     const roleFilter = roleParam === 'admins' ? 'admins' : 'students';
 
-    const whereClause = roleFilter === 'admins'
-      ? "WHERE a.role <> 'Student'"
-      : "WHERE a.role = 'Student'";
+    let rows = [];
 
-    const [rows] = await db.query(
-      `
-      SELECT
-        a.account_id,
-        a.username,
-        a.role,
-        a.account_status,
-        s.student_id,
-        s.student_name,
-        s.student_faculty,
-        s.student_major,
-        ios.company_id as internship_company_id,
-        c.company_name as internship_company_name
-      FROM account a
-      LEFT JOIN student s ON s.account_id = a.account_id
-      LEFT JOIN (
-        SELECT t.student_id, t.company_id
-        FROM internship_of_student t
-        JOIN (
-          SELECT student_id, MAX(student_internship_id) AS max_id
-          FROM internship_of_student
-          GROUP BY student_id
-        ) x
-          ON x.student_id = t.student_id AND x.max_id = t.student_internship_id
-      ) ios ON ios.student_id = s.student_id
-      LEFT JOIN company c ON c.company_id = ios.company_id
-      ${whereClause}
-      ORDER BY s.student_id DESC, a.account_id DESC
-      `
-    );
+    if (roleFilter === 'admins') {
+      const [adminRows] = await db.query(
+        `
+        SELECT
+          ad.admin_id,
+          a.account_id,
+          COALESCE(ad.admin_name, a.username) AS username,
+          ad.admin_name,
+          a.role,
+          a.account_status,
+          NULL AS student_id,
+          NULL AS student_name,
+          NULL AS student_faculty,
+          NULL AS student_major,
+          NULL AS internship_company_id,
+          NULL AS internship_company_name
+        FROM account a
+        LEFT JOIN admin ad ON ad.account_id = a.account_id
+        WHERE a.role <> 'Student'
+        ORDER BY ad.admin_id DESC, a.account_id DESC
+        `
+      );
+      rows = adminRows;
+    } else {
+      const [studentRows] = await db.query(
+        `
+        SELECT
+          NULL AS admin_id,
+          a.account_id,
+          COALESCE(a.username, s.student_name) AS username,
+          COALESCE(a.role, 'Student') AS role,
+          a.account_status,
+          s.student_id,
+          s.student_name,
+          s.student_faculty,
+          s.student_major,
+          ios.company_id as internship_company_id,
+          c.company_name as internship_company_name
+        FROM student s
+        LEFT JOIN account a ON a.account_id = s.account_id
+        LEFT JOIN (
+          SELECT t.student_id, t.company_id
+          FROM internship_of_student t
+          JOIN (
+            SELECT student_id, MAX(student_internship_id) AS max_id
+            FROM internship_of_student
+            GROUP BY student_id
+          ) x
+            ON x.student_id = t.student_id AND x.max_id = t.student_internship_id
+        ) ios ON ios.student_id = s.student_id
+        LEFT JOIN company c ON c.company_id = ios.company_id
+        ORDER BY s.student_id DESC
+        `
+      );
+      rows = studentRows;
+    }
+
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -182,8 +219,10 @@ app.get("/api/users/:id", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
+        ad.admin_id,
         a.account_id,
-        a.username,
+        COALESCE(ad.admin_name, a.username) AS username,
+        ad.admin_name,
         a.role,
         a.account_status,
         s.student_id,
@@ -193,6 +232,7 @@ app.get("/api/users/:id", async (req, res) => {
         ios.company_id as internship_company_id,
         c.company_name as internship_company_name
       FROM account a
+      LEFT JOIN admin ad ON ad.account_id = a.account_id
       LEFT JOIN student s ON s.account_id = a.account_id
       LEFT JOIN (
         SELECT t.student_id, t.company_id
@@ -236,12 +276,12 @@ app.put("/api/users/:id", async (req, res) => {
     );
     if (!current || current.length === 0) return res.status(404).json({ message: "User not found" });
 
-    await db.query(
-      "UPDATE account SET username = ?, account_status = ? WHERE account_id = ?",
-      [username, typeof account_status === "number" ? account_status : 1, id]
-    );
-
     if (current[0].role === 'Student') {
+      await db.query(
+        "UPDATE account SET username = ?, account_status = ? WHERE account_id = ?",
+        [username, typeof account_status === "number" ? account_status : 1, id]
+      );
+
       const [studentRows] = await db.query("SELECT student_id FROM student WHERE account_id = ? LIMIT 1", [id]);
       if (studentRows.length > 0) {
         const studentId = studentRows[0].student_id;
@@ -267,6 +307,20 @@ app.put("/api/users/:id", async (req, res) => {
             );
           }
         }
+      }
+    } else {
+      const adminDisplayName = String(student_name || username || '').trim();
+
+      await db.query(
+        "UPDATE account SET account_status = ? WHERE account_id = ?",
+        [typeof account_status === "number" ? account_status : 1, id]
+      );
+
+      if (adminDisplayName) {
+        await db.query(
+          "UPDATE admin SET admin_name = ? WHERE account_id = ?",
+          [adminDisplayName, id]
+        );
       }
     }
 
@@ -404,10 +458,17 @@ app.post("/api/users/import", async (req, res) => {
       const existingRow = accountId ? existingAccounts.find((item) => item.account_id === accountId) : null;
 
       if (existingRow) {
-        await db.query(
-          'UPDATE account SET username = ?, role = ?, account_status = ? WHERE account_id = ?',
-          [row.username, row.role, row.account_status, accountId]
-        );
+        if (row.role === 'Student') {
+          await db.query(
+            'UPDATE account SET username = ?, role = ?, account_status = ? WHERE account_id = ?',
+            [row.username, row.role, row.account_status, accountId]
+          );
+        } else {
+          await db.query(
+            'UPDATE account SET role = ?, account_status = ? WHERE account_id = ?',
+            [row.role, row.account_status, accountId]
+          );
+        }
       } else {
         if (accountId) {
           await db.query(
@@ -475,7 +536,7 @@ app.post("/api/users/import", async (req, res) => {
       }
 
       if (row.role !== 'Student' && accountId) {
-        await db.query('UPDATE student SET student_name = ? WHERE account_id = ?', [row.username || null, accountId]);
+        await db.query('UPDATE admin SET admin_name = ? WHERE account_id = ?', [row.username || null, accountId]);
       }
 
       return accountId;
@@ -581,6 +642,17 @@ app.post("/api/companies", async (req, res) => {
       account_id
     } = req.body;
 
+    const normalizedCompanyEmail = String(company_email || '').trim();
+    const normalizedCompanyPhone = normalizePhone(company_phone_num);
+
+    if (normalizedCompanyEmail && !isValidEmail(normalizedCompanyEmail)) {
+      return res.status(400).json({ message: 'รูปแบบอีเมลบริษัทไม่ถูกต้อง' });
+    }
+
+    if (normalizedCompanyPhone && !isValidPhone(normalizedCompanyPhone)) {
+      return res.status(400).json({ message: 'รูปแบบเบอร์โทรศัพท์บริษัทไม่ถูกต้อง' });
+    }
+
     // หา admin_id ถ้าไม่ได้ส่งมาโดยตรง แต่ส่ง account_id มา
     let finalAdminId = admin_id;
     if (!finalAdminId && account_id) {
@@ -608,8 +680,8 @@ app.post("/api/companies", async (req, res) => {
         company_name, 
         company_address || null, 
         company_type || null, 
-        company_email || null, 
-        company_phone_num || null, 
+        normalizedCompanyEmail || null, 
+        normalizedCompanyPhone || null, 
         company_link || null, 
         company_description || null, 
         company_logo || null, 
@@ -652,6 +724,17 @@ app.put("/api/companies/:id", async (req, res) => {
       company_status
     } = req.body;
 
+    const normalizedCompanyEmail = String(company_email || '').trim();
+    const normalizedCompanyPhone = normalizePhone(company_phone_num);
+
+    if (normalizedCompanyEmail && !isValidEmail(normalizedCompanyEmail)) {
+      return res.status(400).json({ message: 'รูปแบบอีเมลบริษัทไม่ถูกต้อง' });
+    }
+
+    if (normalizedCompanyPhone && !isValidPhone(normalizedCompanyPhone)) {
+      return res.status(400).json({ message: 'รูปแบบเบอร์โทรศัพท์บริษัทไม่ถูกต้อง' });
+    }
+
     await db.query(
       `UPDATE company SET 
         company_name = ?, company_address = ?, company_type = ?, 
@@ -659,8 +742,8 @@ app.put("/api/companies/:id", async (req, res) => {
         company_description = ?, company_logo = ?, company_status = ? 
       WHERE company_id = ?`,
       [
-        company_name, company_address, company_type, company_email,
-        company_phone_num, company_link, company_description,
+        company_name, company_address, company_type, normalizedCompanyEmail || null,
+        normalizedCompanyPhone || null, company_link, company_description,
         company_logo, company_status, id
       ]
     );
@@ -728,6 +811,24 @@ app.post('/api/companies/import', async (req, res) => {
         account_id: parseNumber(row.account_id || row['Account ID']),
       }))
       .filter((row) => row.company_name);
+
+    const invalidRows = [];
+    normalizedRows.forEach((row, index) => {
+      if (row.company_email && !isValidEmail(row.company_email)) {
+        invalidRows.push(`row ${index + 1}: Email ไม่ถูกต้อง (${row.company_email})`);
+      }
+      if (row.company_phone_num && !isValidPhone(row.company_phone_num)) {
+        invalidRows.push(`row ${index + 1}: Phone ไม่ถูกต้อง (${row.company_phone_num})`);
+      }
+      row.company_phone_num = normalizePhone(row.company_phone_num);
+    });
+
+    if (invalidRows.length > 0) {
+      return res.status(400).json({
+        message: 'พบข้อมูลรูปแบบ Email/Phone ไม่ถูกต้องในไฟล์นำเข้า',
+        details: invalidRows.slice(0, 20),
+      });
+    }
 
     if (normalizedRows.length === 0) {
       return res.status(400).json({ message: 'No valid rows to import' });
@@ -1482,7 +1583,7 @@ app.get("/api/posts/:id", async (req, res) => {
         i.internship_poster,
         i.internship_status,
         i.mou,
-        i.internship_expired_date,
+        DATE_FORMAT(i.internship_expired_date, '%Y-%m-%d') AS internship_expired_date,
         c.company_name,
         c.company_logo
       FROM internship_posts i
@@ -1645,6 +1746,41 @@ app.get("/api/reviews/company/:id", async (req, res) => {
 // ==================================================
 // CREATE REVIEW
 // ==================================================
+async function canStudentReviewCompany(studentId, companyId) {
+  const [rows] = await db.query(
+    `SELECT 1
+     FROM internship_of_student
+     WHERE student_id = ?
+       AND company_id = ?
+     LIMIT 1`,
+    [studentId, companyId]
+  );
+
+  return rows.length > 0;
+}
+
+app.get("/api/reviews/eligibility/:company_id", async (req, res) => {
+  try {
+    const companyId = Number(req.params.company_id);
+    const studentId = Number(req.query.student_id);
+    const userType = String(req.query.user_type || '').toLowerCase();
+
+    if (!companyId || !studentId) {
+      return res.status(400).json({ canReview: false, reason: 'missing data' });
+    }
+
+    if (userType !== 'student') {
+      return res.json({ canReview: false, reason: 'only student can review' });
+    }
+
+    const canReview = await canStudentReviewCompany(studentId, companyId);
+    return res.json({ canReview });
+  } catch (err) {
+    console.error('❌ REVIEW ELIGIBILITY ERROR:', err);
+    res.status(500).json({ canReview: false, error: 'server error' });
+  }
+});
+
 app.post("/api/reviews", async (req, res) => {
   try {
     let {
@@ -1661,8 +1797,14 @@ app.post("/api/reviews", async (req, res) => {
     company_id = Number(company_id);
     student_id = Number(student_id);
 
-    // เอา ID ตามประเภท user - admin ใช้ negative ID
-    const insert_id = user_type === 'admin' ? -Math.abs(student_id) : student_id;
+    if (user_type !== 'student') {
+      return res.status(403).json({ message: 'เฉพาะนักศึกษาที่เคยฝึกงานกับบริษัทนี้เท่านั้นที่สามารถรีวิวได้' });
+    }
+
+    const canReview = await canStudentReviewCompany(student_id, company_id);
+    if (!canReview) {
+      return res.status(403).json({ message: 'คุณยังไม่มีสิทธิ์รีวิวบริษัทนี้' });
+    }
 
     // ตรวจสอบว่ามีคอลัมน์ student_internship_id หรือไม่จาก schema ที่เรา probe มาคือไม่มี
     const sql = `
@@ -1673,7 +1815,7 @@ app.post("/api/reviews", async (req, res) => {
 
     const [result] = await db.query(sql, [
       company_id,
-      insert_id,
+      student_id,
       review_sum_rating,
       review_work_rating,
       review_life_rating,
@@ -1993,6 +2135,18 @@ app.post("/api/posts", async (req, res) => {
       account_id
     } = req.body;
 
+    const normalizedApplyType = internship_apply_type || 'link';
+    const normalizedInternshipLink = String(internship_link || '').trim();
+
+    if (normalizedInternshipLink) {
+      if (normalizedApplyType === 'email' && !isValidEmail(normalizedInternshipLink)) {
+        return res.status(400).json({ message: 'รูปแบบอีเมลสำหรับสมัครงานไม่ถูกต้อง' });
+      }
+      if (normalizedApplyType !== 'email' && !isValidHttpUrl(normalizedInternshipLink)) {
+        return res.status(400).json({ message: 'รูปแบบลิงก์สมัครงานไม่ถูกต้อง (ต้องขึ้นต้นด้วย http:// หรือ https://)' });
+      }
+    }
+
     let finalAdminId = null;
     if (account_id) {
       const [adminRows] = await db.query("SELECT admin_id FROM admin WHERE account_id = ?", [account_id]);
@@ -2021,7 +2175,7 @@ app.post("/api/posts", async (req, res) => {
         internship_duration, internship_location, internship_compensation,
         internship_description, internship_responsibilities,
         internship_requirements, internship_expired_date || null,
-        internship_link, internship_apply_type || 'link', internship_poster || null, internship_status ?? 1, mou ?? 0, finalAdminId
+        normalizedInternshipLink || null, normalizedApplyType, internship_poster || null, internship_status ?? 1, mou ?? 0, finalAdminId
       ]
     );
 
@@ -2057,6 +2211,18 @@ app.put("/api/posts/:id", async (req, res) => {
       mou
     } = req.body;
 
+    const normalizedApplyType = internship_apply_type || 'link';
+    const normalizedInternshipLink = String(internship_link || '').trim();
+
+    if (normalizedInternshipLink) {
+      if (normalizedApplyType === 'email' && !isValidEmail(normalizedInternshipLink)) {
+        return res.status(400).json({ message: 'รูปแบบอีเมลสำหรับสมัครงานไม่ถูกต้อง' });
+      }
+      if (normalizedApplyType !== 'email' && !isValidHttpUrl(normalizedInternshipLink)) {
+        return res.status(400).json({ message: 'รูปแบบลิงก์สมัครงานไม่ถูกต้อง (ต้องขึ้นต้นด้วย http:// หรือ https://)' });
+      }
+    }
+
     await db.query(
       `UPDATE internship_posts SET 
         internship_title = ?, company_id = ?, internship_working_method = ?, 
@@ -2070,7 +2236,7 @@ app.put("/api/posts/:id", async (req, res) => {
         internship_duration, internship_location, internship_compensation,
         internship_description, internship_responsibilities,
         internship_requirements, internship_expired_date || null,
-        internship_link, internship_apply_type || 'link', internship_poster || null, internship_status, mou, id
+        normalizedInternshipLink || null, normalizedApplyType, internship_poster || null, internship_status, mou, id
       ]
     );
 
@@ -2143,12 +2309,35 @@ app.post('/api/posts/import', async (req, res) => {
         internship_compensation: String(row.internship_compensation || row['Compensation'] || '').trim(),
         internship_working_method: String(row.internship_working_method || row['Working Method'] || '').trim(),
         internship_link: String(row.internship_link || row['Link'] || '').trim(),
+        internship_apply_type: String(row.internship_apply_type || row['Apply Type'] || '').trim().toLowerCase(),
         internship_create_date: normalizeDate(row.internship_create_date || row['Created Date']),
         internship_expired_date: normalizeDate(row.internship_expired_date || row['Expired Date']),
         internship_status: parseStatus(row.internship_status ?? row['Status']),
         mou: parseYesNo(row.mou ?? row['MOU']),
       }))
       .filter((row) => row.internship_title);
+
+    const invalidPostRows = [];
+    normalizedRows.forEach((row, index) => {
+      const applyType = row.internship_apply_type === 'email' ? 'email' : 'link';
+      row.internship_apply_type = applyType;
+
+      if (row.internship_link) {
+        if (applyType === 'email' && !isValidEmail(row.internship_link)) {
+          invalidPostRows.push(`row ${index + 1}: Apply email ไม่ถูกต้อง (${row.internship_link})`);
+        }
+        if (applyType !== 'email' && !isValidHttpUrl(row.internship_link)) {
+          invalidPostRows.push(`row ${index + 1}: Apply link ไม่ถูกต้อง (${row.internship_link})`);
+        }
+      }
+    });
+
+    if (invalidPostRows.length > 0) {
+      return res.status(400).json({
+        message: 'พบข้อมูลรูปแบบช่องทางสมัครไม่ถูกต้องในไฟล์นำเข้าโพสต์',
+        details: invalidPostRows.slice(0, 20),
+      });
+    }
 
     if (normalizedRows.length === 0) {
       return res.status(400).json({ message: 'No valid rows to import' });
@@ -2234,7 +2423,7 @@ app.post('/api/posts/import', async (req, res) => {
             row.internship_requirements || null,
             row.internship_expired_date,
             row.internship_link || null,
-            'link',
+            row.internship_apply_type || 'link',
             row.internship_status,
             row.mou,
             row.internship_create_date,
@@ -2266,7 +2455,7 @@ app.post('/api/posts/import', async (req, res) => {
             row.internship_requirements || null,
             row.internship_expired_date,
             row.internship_link || null,
-            'link',
+            row.internship_apply_type || 'link',
             null,
             row.internship_status,
             row.mou,
@@ -2294,7 +2483,7 @@ app.post('/api/posts/import', async (req, res) => {
             row.internship_requirements || null,
             row.internship_expired_date,
             row.internship_link || null,
-            'link',
+            row.internship_apply_type || 'link',
             null,
             row.internship_status,
             row.mou,

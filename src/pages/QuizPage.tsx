@@ -36,12 +36,22 @@ export default function QuizPage() {
   // ✅ user
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
+  const getQuizAccessMessage = () => {
+    const roleStr = String(localStorage.getItem('role') || user?.role || '').trim().toLowerCase();
+    const isAdmin = roleStr.includes('admin') || (Boolean(user?.admin_id) && !Boolean(user?.student_id));
+
+    if (!user) return 'กรุณาเข้าสู่ระบบก่อนทำแบบทดสอบ';
+    if (isAdmin || !user?.student_id) return 'บัญชีนี้ไม่มีสิทธิ์ทำแบบทดสอบ กรุณาใช้บัญชี Student';
+    return '';
+  };
+
   // =========================
   // ✅ check login
   // =========================
   useEffect(() => {
-    if (!user?.student_id) {
-      alert("กรุณา login ก่อน");
+    const accessMessage = getQuizAccessMessage();
+    if (accessMessage) {
+      alert(accessMessage);
       navigate("/");
     }
   }, []);
@@ -131,8 +141,9 @@ export default function QuizPage() {
   // =========================
   const handleSubmit = async () => {
     try {
-      if (!user?.student_id) {
-        alert("กรุณา login ก่อน");
+      const accessMessage = getQuizAccessMessage();
+      if (accessMessage) {
+        alert(accessMessage);
         navigate("/");
         return;
       }

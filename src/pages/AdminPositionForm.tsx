@@ -6,6 +6,7 @@ import axios from 'axios';
 export default function AdminPositionForm() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     position_name: '',
     position_description: '',
@@ -22,8 +23,18 @@ export default function AdminPositionForm() {
   };
 
   const handleSave = async () => {
+    const nextErrors: Record<string, string> = {};
+    const missingFields: string[] = [];
+
     if (!form.position_name.trim()) {
-      alert('กรุณาระบุชื่อตำแหน่งงาน');
+      nextErrors.position_name = 'กรุณาระบุชื่อตำแหน่งงาน';
+      missingFields.push('ชื่อตำแหน่งงาน');
+    }
+
+    setErrors(nextErrors);
+
+    if (missingFields.length > 0) {
+      alert(`กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน: ${missingFields.join(', ')}`);
       return;
     }
 
@@ -82,11 +93,12 @@ export default function AdminPositionForm() {
               </label>
               <input
                 type="text"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full border rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.position_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                 placeholder="ระบุตำแหน่งงาน"
                 value={form.position_name}
                 onChange={(e) => setForm({ ...form, position_name: e.target.value })}
               />
+              {errors.position_name && <p className="mt-1 text-sm text-red-600">{errors.position_name}</p>}
             </div>
 
             <div>

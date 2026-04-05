@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
-import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail } from "lucide-react";
+import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail, Building2, Laptop, Blend } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface InternshipPostType {
@@ -78,6 +78,30 @@ const getExpireTextColor = (daysLeft: number | null): string => {
   return 'text-gray-500';
 };
 
+const getWorkingMethodIcon = (method: string | undefined) => {
+  const value = String(method || '').trim().toLowerCase();
+
+  if (value.includes('hybrid') || value.includes('ผสม')) {
+    return Blend;
+  }
+
+  if (value.includes('online') || value.includes('remote') || value.includes('wfh') || value.includes('ออนไลน์')) {
+    return Laptop;
+  }
+
+  if (
+    value.includes('on-site') ||
+    value.includes('onsite') ||
+    value.includes('on site') ||
+    value.includes('office') ||
+    value.includes('เข้าออฟฟิศ')
+  ) {
+    return Building2;
+  }
+
+  return FileText;
+};
+
 function InternshipPosts() {
   const [posts, setPosts] = useState<InternshipPostType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +114,7 @@ function InternshipPosts() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPosterModalOpen, setIsPosterModalOpen] = useState(false);
   const [selectedPoster, setSelectedPoster] = useState<string>("");
+  const [selectedPosterTitle, setSelectedPosterTitle] = useState<string>("");
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<string>("");
   const navigate = useNavigate();
@@ -292,6 +317,12 @@ const toggleFavorite = async (postId: number) => {
           <p className="text-blue-100 text-lg">
             แนะนำตำแหน่งฝึกงานที่ตรงกับความสนใจของคุณ
           </p>
+          <button
+            onClick={() => navigate('/quiz')}
+            className="mt-4 px-5 py-2 bg-white text-blue-900 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+          >
+            เริ่มทำแบบประเมินความสนใจในสายอาชีพ
+          </button>
         </div>
       </div>
 
@@ -300,7 +331,7 @@ const toggleFavorite = async (postId: number) => {
         {/* Count and Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <h2 className="text-lg font-medium text-gray-700">
-            <span className="font-bold">{filteredPosts.length}</span> ตำแหน่งงานแนะนำสำหรับคุณ
+            <span className="font-bold">{filteredPosts.length}</span> โพสต์ประกาศงานแนะนำสำหรับคุณ
           </h2>
 
           <div className="flex gap-4">
@@ -358,6 +389,7 @@ const toggleFavorite = async (postId: number) => {
             const isOpen = statusValue === 1;
             const daysLeft = getDaysLeft(post.internship_expired_date);
             const expireTextColorClass = getExpireTextColor(daysLeft);
+            const WorkingMethodIcon = getWorkingMethodIcon(post.internship_working_method);
 
             return (
               <div
@@ -395,7 +427,7 @@ const toggleFavorite = async (postId: number) => {
                 <div className="flex items-center justify-between mb-4">
                   <div className={`flex items-center gap-1 text-sm font-bold ${(post.review_count ?? 0) > 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
                     <Star size={14} fill="currentColor" className="fill-current" /> {(post.rating ?? 0).toFixed(1)}
-                    <span className="text-gray-300 font-normal ml-1">
+                    <span className="font-normal ml-1 text-current">
                       ({post.review_count ?? 0} Reviews)
                     </span>
                   </div>
@@ -430,13 +462,14 @@ const toggleFavorite = async (postId: number) => {
                     วันที่ปิดรับสมัคร {formatDateOnly(post.internship_expired_date)}
                   </div>
                   <div className="flex items-center gap-2 text-[15px] text-gray-600">
-                    <FileText size={16} className="text-gray-400" />
+                    <WorkingMethodIcon size={16} className="text-gray-400" />
                     {post.internship_working_method}
                   </div>
                   <button 
                     onClick={() => {
                       if (post.internship_poster) {
                         setSelectedPoster(post.internship_poster);
+                        setSelectedPosterTitle(post.internship_title || 'ไม่ระบุชื่อประกาศ');
                         setIsPosterModalOpen(true);
                       } else {
                         alert("ยังไม่มีรูปโปสเตอร์สำหรับโพสต์นี้");
@@ -486,6 +519,7 @@ const toggleFavorite = async (postId: number) => {
             <div className="overflow-y-auto p-8 pt-10">
               {(() => {
                 const isOpen = (selectedPost.internship_status ?? 1) === 1;
+                const SelectedWorkingMethodIcon = getWorkingMethodIcon(selectedPost.internship_working_method);
                 return (
                   <>
                     {/* Header Info */}
@@ -495,7 +529,7 @@ const toggleFavorite = async (postId: number) => {
                         <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
                         <div className={`flex items-center gap-1 font-bold ${selectedPost?.review_count ? 'text-yellow-500' : 'text-gray-400'}`}>
                           <Star size={16} fill="currentColor" className="fill-current" /> {(selectedPost?.rating ?? 0).toFixed(1)}
-                          <span className="text-gray-400 font-normal ml-1">
+                          <span className="font-normal ml-1 text-current">
                             ({selectedPost?.review_count ?? 0} Reviews)
                           </span>
                         </div>
@@ -509,7 +543,7 @@ const toggleFavorite = async (postId: number) => {
                         {isOpen ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                        <FileText size={16} />
+                        <SelectedWorkingMethodIcon size={16} />
                         {selectedPost.internship_working_method}
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
@@ -534,6 +568,7 @@ const toggleFavorite = async (postId: number) => {
                         <button 
                           onClick={() => {
                             setSelectedPoster(selectedPost.internship_poster!);
+                            setSelectedPosterTitle(selectedPost.internship_title || 'ไม่ระบุชื่อประกาศ');
                             setIsPosterModalOpen(true);
                           }}
                           className="flex items-center gap-1.5 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 font-bold hover:bg-blue-100 transition-colors"
@@ -645,21 +680,27 @@ const toggleFavorite = async (postId: number) => {
       {isPosterModalOpen && selectedPoster && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div 
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsPosterModalOpen(false)}
           ></div>
-          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white">
+          <div className="relative w-full max-w-[760px] rounded-[18px] border-[6px] border-white bg-[#f8f8f8] shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-white/95">
+              <h3 className="text-lg md:text-xl font-bold text-blue-900 truncate">
+                โปสเตอร์รับสมัครงาน: {selectedPosterTitle || 'ไม่ระบุชื่อประกาศ'}
+              </h3>
+            </div>
             <button 
               onClick={() => setIsPosterModalOpen(false)}
-              className="absolute right-4 top-4 text-white bg-black/50 hover:bg-black/70 z-10 p-2 rounded-full transition-all"
+              className="absolute right-4 top-4 w-12 h-12 flex items-center justify-center text-white bg-gray-500/90 hover:bg-gray-600 z-10 rounded-full transition-all"
+              aria-label="ปิดหน้าต่าง"
             >
-              <X size={24} />
+              <X size={28} />
             </button>
-            <div className="overflow-auto p-2">
+            <div className="overflow-auto p-4 md:p-6 bg-[#f8f8f8]">
               <img 
                 src={selectedPoster.startsWith('/') ? `http://localhost:5000${selectedPoster}` : selectedPoster} 
                 alt="Internship Poster" 
-                className="max-w-full h-auto rounded-lg shadow-lg"
+                className="w-full max-h-[72vh] object-contain rounded-md bg-white shadow-md"
               />
             </div>
           </div>

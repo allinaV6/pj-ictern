@@ -16,7 +16,6 @@ import AdminCompanyList from './pages/AdminCompanyList';
 import AdminCompanyForm from './pages/AdminCompanyForm';
 import AdminCompanyDetail from './pages/AdminCompanyDetail';
 import AdminUserList from './pages/AdminUserList';
-import AdminUserForm from './pages/AdminUserForm';
 import AdminUserDetail from './pages/AdminUserDetail';
 import AdminPositionList from './pages/AdminPositionList';
 import AdminPositionForm from './pages/AdminPositionForm';
@@ -115,11 +114,6 @@ function App() {
           <Route path="/admin/users" element={
             <AdminRoute allowedRoles={["Admin"]}>
               <AdminUserList />
-            </AdminRoute>
-          } />
-          <Route path="/admin/users/new" element={
-            <AdminRoute allowedRoles={["Admin"]}>
-              <AdminUserForm />
             </AdminRoute>
           } />
           <Route path="/admin/users/:id" element={

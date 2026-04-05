@@ -6,12 +6,23 @@ export default function ResultQuiz() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
+  const getQuizAccessMessage = () => {
+    const roleStr = String(localStorage.getItem('role') || user?.role || '').trim().toLowerCase();
+    const isAdmin = roleStr.includes('admin') || (Boolean(user?.admin_id) && !Boolean(user?.student_id));
+
+    if (!user) return 'กรุณาเข้าสู่ระบบก่อนดูผลแบบทดสอบ';
+    if (isAdmin || !user?.student_id) return 'บัญชีนี้ไม่มีสิทธิ์ดูผลแบบทดสอบ กรุณาใช้บัญชี Student';
+    return '';
+  };
+
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [quizDate, setQuizDate] = useState<string>("");
 
   useEffect(() => {
-    if (!user?.student_id) {
+    const accessMessage = getQuizAccessMessage();
+    if (accessMessage) {
+      alert(accessMessage);
       navigate("/");
       return;
     }

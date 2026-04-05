@@ -1,7 +1,7 @@
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { Star } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Star, Info } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
 
 type RatingKey =
   | "work_challenge"
@@ -29,6 +29,8 @@ export default function CompanyReview() {
   const duration = "6 เดือน";
 
   const [comment, setComment] = useState<string>("");
+  const [canReview, setCanReview] = useState(false);
+  const [checkingEligibility, setCheckingEligibility] = useState(true);
 
   const [ratings, setRatings] = useState<Record<RatingKey, number>>({
     work_challenge: 0,
@@ -63,6 +65,32 @@ export default function CompanyReview() {
     return vals.reduce((a, b) => a + b, 0) / keys.length;
   };
 
+  useEffect(() => {
+    const checkEligibility = async () => {
+      try {
+        const companyId = Number(id);
+        const userId = user?.student_id || user?.admin_id || user?.user_id;
+        const userType = user?.student_id ? 'student' : 'admin';
+
+        if (!companyId || !userId) {
+          setCanReview(false);
+          return;
+        }
+
+        const res = await fetch(`http://localhost:5000/api/reviews/eligibility/${companyId}?student_id=${userId}&user_type=${userType}`);
+        const data = await res.json();
+        setCanReview(Boolean(data?.canReview));
+      } catch (err) {
+        console.error(err);
+        setCanReview(false);
+      } finally {
+        setCheckingEligibility(false);
+      }
+    };
+
+    checkEligibility();
+  }, [id]);
+
   const handleSubmit = async () => {
     try {
       const companyId = Number(id);
@@ -79,6 +107,18 @@ export default function CompanyReview() {
       if (!userId) {
         alert("กรุณาเข้าสู่ระบบก่อน");
         navigate("/");
+        return;
+      }
+
+      if (userRole !== 'student') {
+        alert('เฉพาะนักศึกษาที่เคยฝึกงานกับบริษัทนี้เท่านั้นที่สามารถรีวิวได้');
+        navigate(`/company/${companyId}`);
+        return;
+      }
+
+      if (!canReview) {
+        alert('คุณไม่มีสิทธิ์รีวิวบริษัทนี้');
+        navigate(`/company/${companyId}`);
         return;
       }
 
@@ -139,7 +179,53 @@ export default function CompanyReview() {
     </div>
   );
 
+  const renderInfoSection = () => (
+    <div className="border-t border-gray-200 pt-6 mt-8 mb-4">
+      <div className="flex items-center gap-2 mb-4 relative group">
+        <h3 className="text-2xl font-bold text-blue-900">
+          รีวิวประสบการณ์การฝึกงานกับบริษัทนี้
+        </h3>
+        <button
+          type="button"
+          className="text-blue-500 hover:text-blue-700"
+          aria-label="ข้อมูลเพิ่มเติมเกี่ยวกับการรีวิว"
+        >
+          <Info size={18} />
+        </button>
+
+        <div className="absolute left-72 top-1/2 -translate-y-1/2 hidden group-hover:block z-20 w-72 rounded-lg bg-[#0f172a] text-white shadow-2xl px-4 py-3 text-sm leading-relaxed">
+          สามารถรีวิวการฝึกงานกับบริษัทนี้ได้เพียง 1 ครั้ง และไม่สามารถแก้ไขภายหลังได้
+        </div>
+      </div>
+
+      <textarea
+        className="w-full border border-gray-200 rounded-xl p-4 min-h-[150px] text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        placeholder="สิ่งที่คุณประทับใจหรือได้เรียนรู้จากการฝึกงาน..."
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+      />
+    </div>
+  );
+
   return (
+    <>
+      {checkingEligibility ? (
+        <div className="min-h-screen bg-gray-50 font-sans pb-10">
+          <Navbar />
+          <div className="max-w-6xl mx-auto px-4 py-16 text-center text-gray-600">
+            กำลังตรวจสอบสิทธิ์รีวิว...
+          </div>
+        </div>
+      ) : !canReview ? (
+        <div className="min-h-screen bg-gray-50 font-sans pb-10">
+          <Navbar />
+          <div className="max-w-6xl mx-auto px-4 py-16 text-center">
+            <h1 className="text-2xl font-bold text-blue-900 mb-3">ไม่มีสิทธิ์เขียนรีวิว</h1>
+            <p className="text-gray-600 mb-6">เฉพาะนักศึกษาที่เคยฝึกงานกับบริษัทนี้เท่านั้นที่สามารถเขียนรีวิวได้</p>
+            <Link to={`/company/${id}`} className="inline-block bg-blue-900 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-800">กลับไปหน้าบริษัท</Link>
+          </div>
+        </div>
+      ) : (
     <div className="min-h-screen bg-gray-50 font-sans pb-10">
       <Navbar />
       
@@ -200,12 +286,7 @@ export default function CompanyReview() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border p-10">
-          <textarea
-            className="w-full border rounded-lg p-4 min-h-[150px]"
-            placeholder="เขียนรีวิว..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
+          {renderInfoSection()}
 
           <div className="flex justify-end gap-4 mt-4">
             <Link to={`/company/${id}`} className="border px-4 py-2 rounded">
@@ -222,5 +303,7 @@ export default function CompanyReview() {
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 }

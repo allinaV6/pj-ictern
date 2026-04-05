@@ -1,7 +1,7 @@
 import AdminLayout from '../components/AdminLayout';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { ChangeEvent } from 'react';
-import { Search, MoreHorizontal, Plus, ChevronDown, ChevronLeft, ChevronRight, Trash2, Edit, Download } from 'lucide-react';
+import { Search, MoreHorizontal, Plus, ChevronDown, ChevronLeft, ChevronRight, Trash2, Edit, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
@@ -22,6 +22,8 @@ export default function AdminPositionList() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortKey, setSortKey] = useState<'position_name' | 'position_description'>('position_name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [importExportOpen, setImportExportOpen] = useState(false);
@@ -154,12 +156,39 @@ export default function AdminPositionList() {
     e.target.value = '';
   };
 
-  const filteredPositions = positions.filter(p => 
-    p.position_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPositions = useMemo(() => {
+    return positions.filter(p =>
+      p.position_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [positions, searchTerm]);
 
-  const totalPages = Math.ceil(filteredPositions.length / itemsPerPage);
-  const currentItems = filteredPositions.slice(
+  const toggleSort = (key: 'position_name' | 'position_description') => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('asc');
+  };
+
+  const renderSortIcon = (key: 'position_name' | 'position_description') => {
+    if (sortKey !== key) return <ArrowUpDown size={14} className="text-gray-400" />;
+    return sortDir === 'asc'
+      ? <ArrowUp size={14} className="text-blue-700" />
+      : <ArrowDown size={14} className="text-blue-700" />;
+  };
+
+  const sortedPositions = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredPositions].sort((a, b) => {
+      const aText = String(a[sortKey] || '');
+      const bText = String(b[sortKey] || '');
+      return aText.localeCompare(bText, 'th', { sensitivity: 'base' }) * dir;
+    });
+  }, [filteredPositions, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sortedPositions.length / itemsPerPage);
+  const currentItems = sortedPositions.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -246,8 +275,12 @@ export default function AdminPositionList() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">
           <div className="grid grid-cols-[1.4fr_2.6fr_56px] px-6 py-3 text-sm font-semibold text-gray-500 bg-gray-50 border-b border-gray-200 gap-4">
-            <div>ชื่อตำแหน่ง</div>
-            <div>คำอธิบายตำแหน่งงาน</div>
+            <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('position_name')}>
+              ชื่อตำแหน่ง {renderSortIcon('position_name')}
+            </button>
+            <button className="flex items-center gap-1 text-left" onClick={() => toggleSort('position_description')}>
+              คำอธิบายตำแหน่งงาน {renderSortIcon('position_description')}
+            </button>
             <div></div>
           </div>
 
