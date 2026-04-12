@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import Navbar from '../../components/Navbar';
 import { Search, Info, Check } from 'lucide-react';
 
 export default function CareerFitQuiz() {
@@ -147,7 +147,7 @@ export default function CareerFitQuiz() {
           </h1>
           <p className="text-blue-100 mb-7 text-lg md:text-xl">
             เลือกตำแหน่งที่คุณสนใจได้{' '}
-            <span className="font-bold text-white">สูงสุด 3 ตำแหน่ง</span>
+            <span className="font-bold text-white">3 ตำแหน่ง</span>
           </p>
 
           <div className="flex flex-col md:flex-row gap-3 max-w-3xl">

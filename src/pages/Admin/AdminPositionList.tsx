@@ -1,10 +1,10 @@
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout from '../../components/AdminLayout';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { Search, MoreHorizontal, Plus, ChevronDown, ChevronLeft, ChevronRight, Trash2, Edit, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
+import { exportDataToExcel, parseExcelFile } from '../../lib/exportExcel';
 
 interface Position {
   position_id: number;

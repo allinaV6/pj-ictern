@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import Navbar from "../../components/Navbar";
 import { MapPin, Clock, Calendar, FileText, Building2, Mail, Star, CheckCircle, XCircle } from "lucide-react";
-import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../lib/postStatus';
+import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../../lib/postStatus';
 
 interface InternshipPostType {
   post_id: number;

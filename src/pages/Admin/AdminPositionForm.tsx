@@ -1,14 +1,11 @@
-import AdminLayout from '../components/AdminLayout';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import AdminLayout from '../../components/AdminLayout';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import axios from 'axios';
 
-export default function AdminPositionDetail() {
+export default function AdminPositionForm() {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     position_name: '',
@@ -16,42 +13,6 @@ export default function AdminPositionDetail() {
     position_skill: '',
     questions: ['', '', '', '', '']
   });
-
-  const normalizeQuestions = (rawQuestions: any[] = []) => {
-    const questionTexts = rawQuestions
-      .map((q) => (q?.quiz_question || '').toString().trim())
-      .filter(Boolean)
-      .slice(0, 5);
-
-    while (questionTexts.length < 5) {
-      questionTexts.push('');
-    }
-
-    return questionTexts;
-  };
-
-  useEffect(() => {
-    if (id) fetchPosition();
-  }, [id]);
-
-  const fetchPosition = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/admin/positions/${id}`);
-      const data = response.data;
-      setForm({
-        position_name: data.position_name || '',
-        position_description: data.position_description || '',
-        position_skill: data.position_skill || '',
-        questions: normalizeQuestions(data.questions)
-      });
-    } catch (error) {
-      console.error('Error fetching position:', error);
-      alert('โหลดข้อมูลไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
 
@@ -86,71 +47,38 @@ export default function AdminPositionDetail() {
     };
 
     try {
-      setSaving(true);
-      await axios.put(`http://localhost:5000/api/admin/positions/${id}`, payload);
-      alert('แก้ไขข้อมูลสำเร็จ');
+      setLoading(true);
+      await axios.post('http://localhost:5000/api/admin/positions', payload);
+      alert('เพิ่มตำแหน่งงานสำเร็จ');
       navigate('/admin/positions');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving position:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      const errorMsg = error.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+      alert(errorMsg);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
-
-  const handleDelete = async () => {
-    if (!id) return;
-
-    const confirmed = window.confirm('คุณต้องการลบตำแหน่งงานนี้ใช่หรือไม่? (คำถามที่เกี่ยวข้องจะถูกลบไปด้วย)');
-    if (!confirmed) return;
-
-    try {
-      setDeleting(true);
-      await axios.delete(`http://localhost:5000/api/admin/positions/${id}`);
-      alert('ลบข้อมูลสำเร็จ');
-      navigate('/admin/positions');
-    } catch (error) {
-      console.error('Error deleting position:', error);
-      alert('ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center min-h-screen text-gray-500 italic">กำลังโหลดข้อมูล...</div>
-      </AdminLayout>
-    );
-  }
 
   return (
     <AdminLayout>
       <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-4xl font-bold">รายละเอียดตำแหน่งงาน</h1>
+          <h1 className="text-4xl font-bold">เพิ่มตำแหน่งงาน</h1>
           <div className="flex gap-3">
             <button
               className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
               onClick={() => navigate('/admin/positions')}
-              disabled={saving}
+              disabled={loading}
             >
               ยกเลิก
             </button>
             <button
-              className="px-6 py-2.5 rounded-lg border border-red-200 bg-red-50 text-red-600 font-semibold text-base hover:bg-red-100 transition-colors disabled:opacity-50"
-              onClick={handleDelete}
-              disabled={saving || deleting}
-            >
-              {deleting ? 'กำลังลบ...' : 'ลบตำแหน่ง'}
-            </button>
-            <button 
               className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 disabled:opacity-50 transition-colors"
               onClick={handleSave}
-              disabled={saving}
+              disabled={loading}
             >
-              {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+              {loading ? 'กำลังบันทึก...' : 'บันทึก'}
             </button>
           </div>
         </div>
@@ -158,8 +86,6 @@ export default function AdminPositionDetail() {
 
       <div className="max-w-6xl mx-auto px-4 pb-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <p className="text-sm text-gray-400 mb-4 font-mono">Position ID: {id}</p>
-
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -168,6 +94,7 @@ export default function AdminPositionDetail() {
               <input
                 type="text"
                 className={`w-full border rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.position_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+                placeholder="ระบุตำแหน่งงาน"
                 value={form.position_name}
                 onChange={(e) => setForm({ ...form, position_name: e.target.value })}
               />
@@ -180,6 +107,7 @@ export default function AdminPositionDetail() {
               </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="ระบุคำอธิบายตำแหน่งงาน"
                 value={form.position_description}
                 onChange={(e) => setForm({ ...form, position_description: e.target.value })}
               />
@@ -191,6 +119,7 @@ export default function AdminPositionDetail() {
               </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="ระบุแนวทางการพัฒนาทักษะ"
                 value={form.position_skill}
                 onChange={(e) => setForm({ ...form, position_skill: e.target.value })}
               />

@@ -1,37 +1,12 @@
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout from '../../components/AdminLayout';
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
 
 type Company = {
   company_id: number;
   company_name: string;
-};
-
-type PostResponse = {
-  internship_title?: string;
-  company_id?: number;
-  company_name?: string;
-  internship_working_method?: string;
-  internship_duration?: string | number;
-  internship_location?: string;
-  internship_compensation?: string;
-  internship_description?: string;
-  internship_responsibilities?: string;
-  internship_requirements?: string;
-  internship_expired_date?: string;
-  internship_link?: string;
-  internship_poster?: string;
-  internship_status?: number;
-  mou?: number;
-};
-
-const toMouFlag = (value: unknown): 0 | 1 => {
-  if (typeof value === 'boolean') return value ? 1 : 0;
-  if (typeof value === 'number') return value > 0 ? 1 : 0;
-  const normalized = String(value || '').trim().toLowerCase();
-  return ['1', 'true', 'yes', 'y', 'on', 'checked', 'ใช่'].includes(normalized) ? 1 : 0;
 };
 
 const PROVINCES = [
@@ -42,14 +17,13 @@ const PROVINCES = [
   'มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน','ยโสธร','ยะลา','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี',
   'ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สตูล','สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร',
   'สระแก้ว','สระบุรี','สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์','หนองคาย','หนองบัวลำภู','อ่างทอง',
-  'อำนาจเจริญ','อุดรธานี','อุตรดิตถ์','อุทัยธานี','อุบลราชธานี','เชียงราย','เชียงใหม่'
-];
+  'อำนาจเจริญ','อุดรธานี','อุตรดิตถ์','อุทัยธานี','อุบลราชธานี','เชียงราย','เชียงใหม่','เพชรบูรณ์','แพร่','ลำปาง'
+].filter((v, i, a) => a.indexOf(v) === i);
 
 const COMP_UNITS = ['ต่อเดือน', 'ต่อวัน'];
 
-export default function AdminInternshipPostDetail() {
+export default function AdminInternshipPostForm() {
   const navigate = useNavigate();
-  const { id } = useParams();
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const isValidHttpUrl = (value: string) => {
     try {
@@ -62,7 +36,6 @@ export default function AdminInternshipPostDetail() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companySearch, setCompanySearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [compensationAmount, setCompensationAmount] = useState('');
   const [compensationUnit, setCompensationUnit] = useState(COMP_UNITS[0]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -105,52 +78,15 @@ export default function AdminInternshipPostDetail() {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [postRes, companiesRes] = await Promise.all([
-          axios.get<PostResponse>(`http://localhost:5000/api/posts/${id}`),
-          axios.get<Company[]>('http://localhost:5000/api/companies')
-        ]);
-
-        const post = postRes.data;
-        const comp = (post.internship_compensation || '').trim();
-        const matchedUnit = COMP_UNITS.find((u) => comp.endsWith(u));
-        const derivedUnit = matchedUnit || COMP_UNITS[0];
-        const derivedAmount = matchedUnit ? comp.slice(0, comp.length - matchedUnit.length).trim() : comp;
-        setCompensationUnit(derivedUnit);
-        setCompensationAmount(derivedAmount);
-
-        setFormData({
-          internship_title: post.internship_title || '',
-          company_id: post.company_id ? String(post.company_id) : '',
-          internship_working_method: post.internship_working_method || '',
-          internship_duration: post.internship_duration ? String(post.internship_duration) : '',
-          internship_location: post.internship_location || '',
-          internship_compensation: post.internship_compensation || '',
-          internship_description: post.internship_description || '',
-          internship_responsibilities: post.internship_responsibilities || '',
-          internship_requirements: post.internship_requirements || '',
-          internship_expired_date: post.internship_expired_date ? post.internship_expired_date.split('T')[0] : '',
-          internship_link: post.internship_link || '',
-          internship_apply_type: (post as any).internship_apply_type || 'link',
-          internship_poster: post.internship_poster || '',
-          internship_status: post.internship_status ?? 1,
-          mou: toMouFlag(post.mou)
-        });
-        setCompanySearch(post.company_name || '');
-        setCompanies(companiesRes.data);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        alert('ไม่พบข้อมูลโพสต์นี้');
-        navigate('/admin/internship-posts');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id, navigate]);
+    axios
+      .get<Company[]>('http://localhost:5000/api/companies')
+      .then((response) => {
+        setCompanies(response.data);
+      })
+      .catch((error) => {
+        console.error('Error fetching companies:', error);
+      });
+  }, []);
 
   const filteredCompanies = companies.filter(c => 
     c.company_name.toLowerCase().includes(companySearch.toLowerCase())
@@ -221,47 +157,26 @@ export default function AdminInternshipPostDetail() {
       const user = userStr ? JSON.parse(userStr) : null;
       const account_id = user?.id;
 
-      await axios.put(`http://localhost:5000/api/posts/${id}`, { ...formData, company_id, account_id, internship_compensation });
-      alert('แก้ไขข้อมูลสำเร็จ');
+      await axios.post('http://localhost:5000/api/posts', { ...formData, company_id, account_id, internship_compensation });
+      alert('บันทึกสำเร็จ');
       navigate('/admin/internship-posts');
     } catch (error) {
-      console.error('Error updating post:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      console.error('Error saving post:', error);
+      alert('เกิดข้อผิดพลาดในการบันทึก');
     }
   };
-
-  const handleDelete = async () => {
-    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?')) {
-      try {
-        await axios.delete(`http://localhost:5000/api/posts/${id}`);
-        alert('ลบโพสต์สำเร็จ');
-        navigate('/admin/internship-posts');
-      } catch (error) {
-        console.error('Error deleting post:', error);
-        alert('เกิดข้อผิดพลาดในการลบ');
-      }
-    }
-  };
-
-  if (loading) return <AdminLayout><div className="p-10 text-center">กำลังโหลด...</div></AdminLayout>;
 
   return (
     <AdminLayout>
       <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-4xl font-bold">รายละเอียดประกาศงาน</h1>
+          <h1 className="text-4xl font-bold">เพิ่มโพสต์ประกาศงาน</h1>
           <div className="flex gap-3">
             <button
               className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
               onClick={() => navigate('/admin/internship-posts')}
             >
               ยกเลิก
-            </button>
-            <button
-              className="px-6 py-2.5 rounded-lg bg-red-600 border border-white text-white font-semibold text-base hover:bg-red-700 transition-colors"
-              onClick={handleDelete}
-            >
-              ลบโพสต์
             </button>
             <button
               className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 transition-colors"
@@ -275,7 +190,6 @@ export default function AdminInternshipPostDetail() {
 
       <div className="max-w-6xl mx-auto px-4 pb-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <p className="text-sm text-gray-400 mb-4 font-mono">Post ID: {id}</p>
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -322,7 +236,7 @@ export default function AdminInternshipPostDetail() {
                       filteredCompanies.map(c => (
                         <div
                           key={c.company_id}
-                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b last:border-none text-base"
+                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b last:border-none"
                           onMouseDown={(e) => {
                             e.preventDefault();
                             handleSelectCompany(c);
@@ -552,7 +466,7 @@ export default function AdminInternshipPostDetail() {
               </label>
               <textarea
                 className={`w-full border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 min-h-[140px] ${errors.internship_responsibilities ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                placeholder="(1บรรทัด ต่อ 1ข้อ)"
+                placeholder="( 1บรรทัด ต่อ 1ข้อ )"
                 maxLength={1000}
                 value={formData.internship_responsibilities}
                 onChange={(e) => setFormData({ ...formData, internship_responsibilities: e.target.value })}
@@ -565,7 +479,7 @@ export default function AdminInternshipPostDetail() {
 
             <div className="relative">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                คุณสมบัติผู้สมัคร ( 1บรรทัด ต่อ 1ข้อ ) <span className="text-red-500">*</span>
+                คุณสมบัติผู้สมัคร ( 1บรรทัด ต่อ 1ข้อ )<span className="text-red-500">*</span>
               </label>
               <textarea
                 className={`w-full border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 min-h-[140px] ${errors.internship_requirements ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}

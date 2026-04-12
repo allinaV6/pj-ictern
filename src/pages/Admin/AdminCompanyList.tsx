@@ -1,10 +1,10 @@
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout from '../../components/AdminLayout';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { Search, Plus, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
+import { exportDataToExcel, parseExcelFile } from '../../lib/exportExcel';
 
 const SIMILARITY_THRESHOLD = 0.8;
 

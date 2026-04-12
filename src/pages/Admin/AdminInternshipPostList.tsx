@@ -1,10 +1,10 @@
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout from '../../components/AdminLayout';
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { Search, Plus, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { exportDataToExcel, parseExcelFile } from '../lib/exportExcel';
+import { exportDataToExcel, parseExcelFile } from '../../lib/exportExcel';
 
 interface Post {
   post_id: number;

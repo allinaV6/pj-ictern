@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import Navbar from '../../components/Navbar';
 import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Star, Calendar, Clock } from 'lucide-react';
 import axios from 'axios';
-import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../lib/postStatus';
+import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../../lib/postStatus';
 
 interface CompanyData {
   company_id: number;

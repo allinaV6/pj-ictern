@@ -19,12 +19,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "123456",
+  password: process.env.DB_PASSWORD || "1234",
   database: process.env.DB_NAME || "ictern",
   port: process.env.DB_PORT || 3306,
 });
 
-const DEFAULT_IMPORTED_USER_PASSWORD = "123456";
+const DEFAULT_IMPORTED_USER_PASSWORD = "1234";
 
 const normalizePhone = (value) => String(value || "").replace(/[\s()-]/g, "").trim();
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());

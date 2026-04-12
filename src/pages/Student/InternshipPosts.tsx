@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import Navbar from "../components/Navbar";
+import Navbar from "../../components/Navbar";
 import { Search, Heart, MapPin, Clock, Calendar, FileText, Star, X, CheckCircle, XCircle, Mail, Building2, Laptop, Blend } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { formatThaiDateOnly, getDaysLeftFromToday, isPostOpenByDateAndStatus } from '../lib/postStatus';
+import { formatThaiDateOnly, getDaysLeftFromToday, isPostOpenByDateAndStatus } from '../../lib/postStatus';
 
 interface InternshipPostType {
   post_id: number;

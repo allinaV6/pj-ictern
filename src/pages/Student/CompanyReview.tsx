@@ -1,5 +1,5 @@
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import Navbar from '../../components/Navbar';
 import { Star, Info } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 

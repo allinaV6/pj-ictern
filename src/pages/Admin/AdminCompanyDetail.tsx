@@ -1,6 +1,6 @@
-import AdminLayout from '../components/AdminLayout';
-import { useNavigate } from 'react-router-dom';
+import AdminLayout from '../../components/AdminLayout';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 
 type CompanyItem = {
@@ -10,8 +10,9 @@ type CompanyItem = {
 
 const SIMILARITY_THRESHOLD = 0.8;
 
-export default function AdminCompanyForm() {
+export default function AdminCompanyDetail() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const normalizePhone = (value: string) => value.replace(/[\s()-]/g, '').trim();
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const isValidPhone = (value: string) => /^(?:0\d{8,9}|\+66\d{8,9})$/.test(normalizePhone(value));
@@ -21,6 +22,10 @@ export default function AdminCompanyForm() {
       ? value
       : `http://localhost:5000${value}`;
   };
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [existingCompanies, setExistingCompanies] = useState<CompanyItem[]>([]);
   const [form, setForm] = useState({
     company_name: '',
     company_address: '',
@@ -32,16 +37,61 @@ export default function AdminCompanyForm() {
     company_logo: '',
     company_status: 1
   });
-  const [uploading, setUploading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [existingCompanies, setExistingCompanies] = useState<CompanyItem[]>([]);
+
+  function fileToBase64(file: File) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const handleFile = async (file?: File) => {
+    if (!file) return;
+    try {
+      setUploading(true);
+      const b64 = await fileToBase64(file);
+      const resp = await axios.post('http://localhost:5000/api/uploads/logo', {
+        filename: file.name,
+        data: b64,
+      });
+      setForm((prev) => ({ ...prev, company_logo: resp.data.url }));
+    } catch (e) {
+      console.error(e);
+      if (axios.isAxiosError(e)) {
+        alert(e.response?.data?.message || e.message || 'อัปโหลดรูปไม่สำเร็จ');
+      } else {
+        alert('อัปโหลดรูปไม่สำเร็จ');
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
-    axios
-      .get<CompanyItem[]>('http://localhost:5000/api/companies')
-      .then((res) => setExistingCompanies(Array.isArray(res.data) ? res.data : []))
-      .catch((e) => console.error('fetch companies for duplicate check error', e));
-  }, []);
+    Promise.all([
+      axios.get(`http://localhost:5000/api/companies/${id}`),
+      axios.get<CompanyItem[]>('http://localhost:5000/api/companies')
+    ])
+      .then(([companyRes, listRes]) => {
+        const c = companyRes.data;
+        setForm({
+          company_name: c.company_name || '',
+          company_address: c.company_address || '',
+          company_type: c.company_type || '',
+          company_email: c.company_email || '',
+          company_phone_num: c.company_phone_num || '',
+          company_link: c.company_link || '',
+          company_description: c.company_description || '',
+          company_logo: c.company_logo || '',
+          company_status: typeof c.company_status === 'number' ? c.company_status : 1
+        });
+        setExistingCompanies(Array.isArray(listRes.data) ? listRes.data : []);
+      })
+      .catch((e) => console.error('fetch company error', e))
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const normalizeCompanyName = (value: string) =>
     String(value || '')
@@ -85,7 +135,9 @@ export default function AdminCompanyForm() {
     const normalizedCurrent = normalizeCompanyName(currentName);
     if (!normalizedCurrent) return [] as Array<{ name: string; score: number }>;
 
+    const currentId = Number(id);
     const matches = existingCompanies
+      .filter((c) => Number(c.company_id) !== currentId)
       .map((c) => c.company_name)
       .filter(Boolean)
       .map((name) => {
@@ -102,38 +154,7 @@ export default function AdminCompanyForm() {
 
     const deduped = Array.from(new Map(matches.map((item) => [item.name, item])).values());
     return deduped.slice(0, 3);
-  }, [existingCompanies, form.company_name]);
-
-  const handleFile = async (file?: File) => {
-    if (!file) return;
-    try {
-      setUploading(true);
-      const b64 = await fileToBase64(file);
-      const resp = await axios.post('http://localhost:5000/api/uploads/logo', {
-        filename: file.name,
-        data: b64,
-      });
-      setForm((prev) => ({ ...prev, company_logo: resp.data.url }));
-    } catch (e) {
-      console.error(e);
-      if (axios.isAxiosError(e)) {
-        alert(e.response?.data?.message || e.message || 'อัปโหลดรูปไม่สำเร็จ');
-      } else {
-        alert('อัปโหลดรูปไม่สำเร็จ');
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  function fileToBase64(file: File) {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
+  }, [existingCompanies, form.company_name, id]);
 
   const handleSave = async () => {
     const nextErrors: Record<string, string> = {};
@@ -180,18 +201,8 @@ export default function AdminCompanyForm() {
     }
 
     try {
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      
-      // ส่งทั้ง admin_id และ account_id เพื่อความชัวร์
-      const payload = { 
-        ...form, 
-        admin_id: user?.admin_id,
-        account_id: user?.account_id || user?.id 
-      };
-      
-      await axios.post('http://localhost:5000/api/companies', payload);
-      alert('บันทึกข้อมูลบริษัทสำเร็จ');
+      await axios.put(`http://localhost:5000/api/companies/${id}`, form);
+      alert('บันทึกข้อมูลสำเร็จ');
       navigate('/admin/companies');
     } catch (e) {
       console.error(e);
@@ -199,11 +210,31 @@ export default function AdminCompanyForm() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm('ยืนยันการลบบริษัทนี้?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/companies/${id}`);
+      alert('ลบข้อมูลสำเร็จ');
+      navigate('/admin/companies');
+    } catch (e) {
+      console.error(e);
+      alert('ลบไม่สำเร็จ (อาจมีการอ้างอิงในโพสต์)');
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="p-10 text-center">กำลังโหลด...</div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="bg-blue-900 text-white px-4 py-10 mb-8 sticky top-[81px] z-40 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-4xl font-bold">เพิ่มบริษัท</h1>
+          <h1 className="text-4xl font-bold">รายละเอียดบริษัท</h1>
           <div className="flex gap-3">
             <button
               className="px-6 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:bg-gray-100 transition-colors"
@@ -212,8 +243,14 @@ export default function AdminCompanyForm() {
               ยกเลิก
             </button>
             <button
-              onClick={handleSave}
+              className="px-6 py-2.5 rounded-lg bg-red-600 border border-white text-white font-semibold text-base hover:bg-red-700 transition-colors"
+              onClick={handleDelete}
+            >
+              ลบบริษัท
+            </button>
+            <button
               className="px-6 py-2.5 rounded-lg bg-blue-900 border border-white text-white font-semibold text-base hover:bg-blue-800 transition-colors"
+              onClick={handleSave}
             >
               บันทึก
             </button>
@@ -223,6 +260,7 @@ export default function AdminCompanyForm() {
 
       <div className="max-w-6xl mx-auto px-4 pb-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <p className="text-sm text-gray-400 mb-4 font-mono">Company ID: {id}</p>
           <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-[1.2fr,2fr] gap-8 mb-8">
             <div className="space-y-4">
@@ -232,16 +270,15 @@ export default function AdminCompanyForm() {
               {form.company_logo ? (
                 <img
                   src={toLogoUrl(form.company_logo)}
-                  className={`w-40 h-40 rounded-xl object-cover border ${errors.company_logo ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-200'}`}
+                  className={`w-40 h-40 rounded-xl object-cover border ${errors.company_logo ? 'border-red-500 ring-2 ring-red-100' : ''}`}
                 />
               ) : (
-                <div className={`w-40 h-40 rounded-xl bg-gray-100 border border-dashed flex flex-col items-center justify-center text-gray-500 text-sm ${errors.company_logo ? 'border-red-500 ring-2 ring-red-100' : 'border-gray-300'}`}>
-                  <span>เลือกรูป</span>
-                  <span className="text-xs text-gray-400 mt-1">อัปโหลดรูปภาพ .jpg หรือ .png ขนาดไม่เกิน 10 MB</span>
+                <div className={`w-40 h-40 rounded-xl bg-blue-900 flex items-center justify-center text-white text-sm font-semibold ${errors.company_logo ? 'ring-2 ring-red-300' : ''}`}>
+                  Logo
                 </div>
               )}
               <label className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-blue-900 text-white text-sm font-semibold hover:bg-blue-800 cursor-pointer">
-                {uploading ? 'กำลังอัปโหลด...' : '+ เพิ่มไฟล์รูป'}
+                {uploading ? 'กำลังอัปโหลด...' : 'เปลี่ยนรูป'}
                 <input
                   type="file"
                   accept="image/*"
@@ -252,8 +289,8 @@ export default function AdminCompanyForm() {
               </label>
               <input
                 type="text"
-                placeholder="หรือใส่ URL รูปโลโก้"
-                className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 mt-3 ${errors.company_logo ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+                placeholder="URL รูปโลโก้"
+                className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_logo ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
                 value={form.company_logo}
                 onChange={(e) => setForm({ ...form, company_logo: e.target.value })}
               />
@@ -268,9 +305,8 @@ export default function AdminCompanyForm() {
                 <input
                   type="text"
                   className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_name ? 'border-red-500 focus:ring-red-500' : similarCompanyNames.length > 0 ? 'border-amber-400 focus:ring-amber-400' : 'border-gray-300 focus:ring-blue-500'}`}
-                  placeholder="กรอกชื่อบริษัท"
                   value={form.company_name}
-                  onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                  onChange={(e)=>setForm({...form, company_name: e.target.value})}
                 />
                 {errors.company_name && <p className="mt-1 text-sm text-red-600">{errors.company_name}</p>}
                 {!errors.company_name && similarCompanyNames.length > 0 && (
@@ -288,9 +324,8 @@ export default function AdminCompanyForm() {
                   <input
                     type="tel"
                     className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_phone_num ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                    placeholder="กรอกเบอร์โทรศัพท์"
                     value={form.company_phone_num}
-                    onChange={(e) => setForm({ ...form, company_phone_num: normalizePhone(e.target.value) })}
+                    onChange={(e)=>setForm({...form, company_phone_num: normalizePhone(e.target.value)})}
                   />
                   {errors.company_phone_num && <p className="mt-1 text-sm text-red-600">{errors.company_phone_num}</p>}
                 </div>
@@ -301,9 +336,8 @@ export default function AdminCompanyForm() {
                   <input
                     type="text"
                     className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_link ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                    placeholder="กรอก website บริษัท"
                     value={form.company_link}
-                    onChange={(e) => setForm({ ...form, company_link: e.target.value })}
+                    onChange={(e)=>setForm({...form, company_link: e.target.value})}
                   />
                   {errors.company_link && <p className="mt-1 text-sm text-red-600">{errors.company_link}</p>}
                 </div>
@@ -317,24 +351,23 @@ export default function AdminCompanyForm() {
                   <input
                     type="text"
                     className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_address ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                    placeholder="กรอกที่อยู่ (จังหวัด/เขต)"
                     value={form.company_address}
-                    onChange={(e) => setForm({ ...form, company_address: e.target.value })}
+                    onChange={(e)=>setForm({...form, company_address: e.target.value})}
                   />
                   {errors.company_address && <p className="mt-1 text-sm text-red-600">{errors.company_address}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  สถานะบริษัท <span className="text-red-500">*</span>
+                    สถานะบริษัท <span className="text-red-500">*</span>
                   </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  value={form.company_status}
-                  onChange={(e) => setForm({ ...form, company_status: parseInt(e.target.value) })}
-                >
-                  <option value={1}>เปิดรับสมัคร</option>
-                  <option value={0}>ปิดรับสมัคร</option>
-                </select>
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    value={form.company_status}
+                    onChange={(e) => setForm({ ...form, company_status: parseInt(e.target.value) })}
+                  >
+                    <option value={1}>เปิดรับสมัคร</option>
+                    <option value={0}>ปิดรับสมัคร</option>
+                  </select>
                 </div>
               </div>
 
@@ -346,9 +379,8 @@ export default function AdminCompanyForm() {
                   <input
                     type="email"
                     className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                    placeholder="กรอกอีเมล"
                     value={form.company_email}
-                    onChange={(e) => setForm({ ...form, company_email: e.target.value })}
+                    onChange={(e)=>setForm({...form, company_email: e.target.value})}
                   />
                   {errors.company_email && <p className="mt-1 text-sm text-red-600">{errors.company_email}</p>}
                 </div>
@@ -359,9 +391,8 @@ export default function AdminCompanyForm() {
                   <input
                     type="text"
                     className={`w-full border rounded-lg px-4 py-2.5 text-base focus:outline-none focus:ring-2 ${errors.company_type ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                    placeholder="กรอกประเภทของบริษัท"
                     value={form.company_type}
-                    onChange={(e) => setForm({ ...form, company_type: e.target.value })}
+                    onChange={(e)=>setForm({...form, company_type: e.target.value})}
                   />
                   {errors.company_type && <p className="mt-1 text-sm text-red-600">{errors.company_type}</p>}
                 </div>
@@ -376,9 +407,8 @@ export default function AdminCompanyForm() {
               </label>
               <textarea
                 className={`w-full border rounded-lg px-4 py-2.5 text-base h-40 resize-none focus:outline-none focus:ring-2 ${errors.company_description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
-                placeholder="ใส่คำอธิบายเกี่ยวกับบริษัท..."
                 value={form.company_description}
-                onChange={(e) => setForm({ ...form, company_description: e.target.value })}
+                onChange={(e)=>setForm({...form, company_description: e.target.value})}
               />
               {errors.company_description && <p className="mt-1 text-sm text-red-600">{errors.company_description}</p>}
             </div>
