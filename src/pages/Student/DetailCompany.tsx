@@ -77,7 +77,6 @@ export default function DetailCompany() {
       ? value
       : `http://localhost:5000${value}`;
   };
-  const [showDefinitions, setShowDefinitions] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [company, setCompany] = useState<CompanyData | null>(null);
@@ -305,14 +304,12 @@ export default function DetailCompany() {
           <div className="flex justify-between items-center mb-6">
              <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
                รีวิวการฝึกงาน ({reviews.length}) 
-               <div className="relative">
+               <div className="relative group">
                  <Info 
                    size={16} 
                    className="text-blue-400 cursor-pointer hover:text-blue-600 transition-colors"
-                   onClick={() => setShowDefinitions(!showDefinitions)}
                  />
-                 {showDefinitions && (
-                    <div className="absolute left-8 top-1/2 -translate-y-1/2 w-[320px] bg-[#05101c] text-white p-5 rounded-xl shadow-2xl z-50 text-[13px] border border-gray-800">
+                 <div className="absolute left-8 top-1/2 -translate-y-1/2 w-[320px] bg-[#05101c] text-white p-5 rounded-xl shadow-2xl z-50 text-[13px] border border-gray-800 hidden group-hover:block">
                       {/* Left Arrow Pointer */}
                       <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-[#05101c]"></div>
                       
@@ -331,7 +328,6 @@ export default function DetailCompany() {
                         </div>
                       </div>
                     </div>
-                 )}
                </div>
              </h2>
              {eligibilityChecked && canReview ? (

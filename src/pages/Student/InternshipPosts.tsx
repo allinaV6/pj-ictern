@@ -411,7 +411,7 @@ const toggleFavorite = async (postId: number) => {
 
                 <div className="flex items-center justify-between mb-4">
                   <div className={`flex items-center gap-1 text-sm font-bold ${(post.review_count ?? 0) > 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
-                    <Star size={14} fill="currentColor" className="fill-current" /> {(post.rating ?? 0).toFixed(1)}
+                    <Star size={14} fill="currentColor" className="fill-current" /> {Number(post.rating ?? 0).toFixed(1)}
                     <span className="font-normal ml-1 text-current">
                       ({post.review_count ?? 0} Reviews)
                     </span>
@@ -513,7 +513,7 @@ const toggleFavorite = async (postId: number) => {
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
                         <div className={`flex items-center gap-1 font-bold ${selectedPost?.review_count ? 'text-yellow-500' : 'text-gray-400'}`}>
-                          <Star size={16} fill="currentColor" className="fill-current" /> {(selectedPost?.rating ?? 0).toFixed(1)}
+                          <Star size={16} fill="currentColor" className="fill-current" /> {Number(selectedPost?.rating ?? 0).toFixed(1)}
                           <span className="font-normal ml-1 text-current">
                             ({selectedPost?.review_count ?? 0} Reviews)
                           </span>

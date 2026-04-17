@@ -95,9 +95,6 @@ export default function ResultQuiz() {
     return <div className="p-10 text-center">ยังไม่มีผลลัพธ์</div>;
   }
 
-  // ซ้าย(3) กลาง(1) ขวา(2)
-  const display = [results[2], results[0], results[1]].filter(Boolean);
-
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <Navbar />
@@ -111,41 +108,77 @@ export default function ResultQuiz() {
 
         {/* 🔥 TITLE */}
         <h2 className="text-2xl font-bold text-center mb-10 text-blue-900">
-          ภาพรวมผลการประเมินทักษะทั้ง 3 ตำแหน่ง
+          อันดับสายงานที่เหมาะสมกับคุณ
         </h2>
 
-        {/* 🔥 GRAPH */}
-        <div className="flex justify-center items-end gap-10 h-64 mb-10">
+        {/* 🔥 RANKING TABLE */}
+        <div className="mb-10">
+          <div className="space-y-4">
+            {results.map((item, index) => {
+              const rankNumber = index + 1;
+              const getRankColor = (rank: number) => {
+                switch(rank) {
+                  case 1: return "bg-green-100 border-l-4 border-green-600";
+                  case 2: return "bg-blue-100 border-l-4 border-blue-600";
+                  case 3: return "bg-gray-100 border-l-4 border-gray-600";
+                  default: return "bg-gray-100";
+                }
+              };
 
-          {display.map((item, index) => {
-            const isWinner = index === 1;
+              const getRankBadgeColor = (rank: number) => {
+                switch(rank) {
+                  case 1: return "bg-green-600 text-white";
+                  case 2: return "bg-blue-600 text-white";
+                  case 3: return "bg-gray-600 text-white";
+                  default: return "bg-gray-600 text-white";
+                }
+              };
 
-            return (
-              <div key={index} className="flex flex-col items-center">
+              return (
+                <div key={index} className={`p-4 rounded-lg ${getRankColor(rankNumber)} transition-all hover:shadow-md`}>
+                  <div className="flex items-center gap-4">
+                    {/* Rank Badge */}
+                    <div className={`w-12 h-12 rounded-full ${getRankBadgeColor(rankNumber)} flex items-center justify-center font-bold text-lg flex-shrink-0`}>
+                      {rankNumber}
+                    </div>
 
-                <div className="mb-2 font-bold text-lg text-blue-900">
-                  {item.percent}%
+                    {/* Position Name & Score */}
+                    <div className="flex-grow">
+                      <h3 className="font-bold text-lg text-gray-800">
+                        {item.name}
+                      </h3>
+                    </div>
+
+                    {/* Percentage & Progress Bar */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <div className="font-bold text-2xl text-blue-900">
+                          {item.percent}%
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {item.score}/25
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mt-3 bg-gray-300 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        rankNumber === 1
+                          ? "bg-green-600"
+                          : rankNumber === 2
+                          ? "bg-blue-600"
+                          : "bg-gray-600"
+                      }`}
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
                 </div>
-
-                <div
-                  className={`w-20 rounded-t transition-all duration-500 ${
-                    isWinner
-                      ? "bg-green-600"
-                      : index === 0
-                      ? "bg-yellow-400"
-                      : "bg-blue-500"
-                  }`}
-                  style={{ height: `${item.percent * 2}px` }}
-                />
-
-                <div className="mt-3 text-center font-bold text-blue-900 w-24 break-words">
-                  {item.name}
-                </div>
-
-              </div>
-            );
-          })}
-
+              );
+            })}
+          </div>
         </div>
 
         {/* 🔥 DATE */}

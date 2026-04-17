@@ -19,7 +19,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "1234",
+  password: process.env.DB_PASSWORD || "123456",
   database: process.env.DB_NAME || "ictern",
   port: process.env.DB_PORT || 3306,
 });
