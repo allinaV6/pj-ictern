@@ -453,7 +453,7 @@ const toggleFavorite = async (postId: number) => {
                   {post.internship_poster && (
                     <button 
                       onClick={() => {
-                        setSelectedPoster(post.internship_poster);
+                        setSelectedPoster(post.internship_poster!);
                         setSelectedPosterTitle(post.internship_title || 'ไม่ระบุชื่อประกาศ');
                         setIsPosterModalOpen(true);
                       }}

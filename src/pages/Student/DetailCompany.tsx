@@ -86,7 +86,7 @@ export default function DetailCompany() {
   const [error, setError] = useState("");
   const [avgRating, setAvgRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
-  const [selectedReview, setSelectedReview] = useState<any | null>(null);
+  const [selectedReview] = useState<any | null>(null);
   const [isReviewDetailModalOpen, setIsReviewDetailModalOpen] = useState(false);
   const [canReview, setCanReview] = useState(false);
   const [eligibilityChecked, setEligibilityChecked] = useState(false);
