@@ -450,21 +450,19 @@ const toggleFavorite = async (postId: number) => {
                     <WorkingMethodIcon size={16} className="text-gray-400" />
                     {post.internship_working_method}
                   </div>
-                  <button 
-                    onClick={() => {
-                      if (post.internship_poster) {
+                  {post.internship_poster && (
+                    <button 
+                      onClick={() => {
                         setSelectedPoster(post.internship_poster);
                         setSelectedPosterTitle(post.internship_title || 'ไม่ระบุชื่อประกาศ');
                         setIsPosterModalOpen(true);
-                      } else {
-                        alert("ยังไม่มีรูปโปสเตอร์สำหรับโพสต์นี้");
-                      }
-                    }}
-                    className="text-[15px] text-gray-800 font-bold underline text-left flex items-center gap-1 hover:text-blue-700 transition-colors"
-                  >
-                    <FileText size={14} />
-                    แสดงโปสเตอร์
-                  </button>
+                      }}
+                      className="text-[15px] text-gray-800 font-bold underline text-left flex items-center gap-1 hover:text-blue-700 transition-colors"
+                    >
+                      <FileText size={14} />
+                      แสดงโปสเตอร์
+                    </button>
+                  )}
                 </div>
 
                 <button

@@ -219,7 +219,7 @@ export default function DetailCompany() {
             {company.company_description}
           </p>
           
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-gray-600">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
             <div className="flex items-center gap-1.5">
               <MapPin size={14} className="text-red-500"/> 
               {company.company_address || 'ไม่ระบุ'}
