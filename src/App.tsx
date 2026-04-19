@@ -53,7 +53,19 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50 text-gray-900">
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              fontSize: '16px',
+              padding: '16px 20px',
+              minWidth: '320px',
+              borderRadius: '12px',
+              boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
+            },
+          }}
+        />
 
         <Routes>
 
