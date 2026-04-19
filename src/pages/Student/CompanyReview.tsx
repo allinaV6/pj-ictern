@@ -2,6 +2,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import { Star, Info } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 type ReviewEligibilityResponse = {
   canReview: boolean;
@@ -43,6 +44,7 @@ export default function CompanyReview() {
   const [checkingEligibility, setCheckingEligibility] = useState(true);
   const [eligibilityReason, setEligibilityReason] = useState<string>('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [ratings, setRatings] = useState<Record<RatingKey, number>>({
@@ -120,12 +122,25 @@ export default function CompanyReview() {
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
+    // ✅ Validation: ตรวจสอบ rating
+    const hasIncompleteRating = Object.values(ratings).some(rating => rating === 0);
+    if (hasIncompleteRating) {
+      toast.error("กรุณาให้คะแนนทุกหมวดหมู่ให้ครบถ้วน", { id: "review" });
+      return;
+    }
+
+    // ✅ Validation: ตรวจสอบ comment
+    if (!comment.trim()) {
+      toast.error("กรุณาใส่ความคิดเห็นในการรีวิว", { id: "review" });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const companyId = Number(id);
 
       if (!companyId) {
-        alert("company_id ไม่ถูกต้อง");
+        toast.error("company_id ไม่ถูกต้อง", { id: "review" });
         return;
       }
 
@@ -134,19 +149,19 @@ export default function CompanyReview() {
       const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
       
       if (!userId) {
-        alert("กรุณาเข้าสู่ระบบก่อน");
+        toast.error("กรุณาเข้าสู่ระบบก่อน", { id: "review" });
         navigate("/");
         return;
       }
 
       if (userRole !== 'student') {
-        alert('เฉพาะนักศึกษาที่เคยฝึกงานกับบริษัทนี้เท่านั้นที่สามารถรีวิวได้');
+        toast.error('เฉพาะนักศึกษาที่เคยฝึกงานกับบริษัทนี้เท่านั้นที่สามารถรีวิวได้', { id: "review" });
         navigate(`/company/${companyId}`);
         return;
       }
 
       if (!canReview) {
-        alert('คุณไม่มีสิทธิ์รีวิวบริษัทนี้');
+        toast.error('คุณไม่มีสิทธิ์รีวิวบริษัทนี้', { id: "review" });
         navigate(`/company/${companyId}`);
         return;
       }
@@ -179,15 +194,15 @@ export default function CompanyReview() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("บันทึกรีวิวสำเร็จ ✅");
+        toast.success("บันทึกรีวิวสำเร็จ ✅", { id: "review" });
         navigate(`/company/${companyId}`);
       } else {
-        alert(data.message || "บันทึกไม่สำเร็จ");
+        toast.error(data.message || "บันทึกไม่สำเร็จ", { id: "review" });
       }
 
     } catch (err) {
       console.error(err);
-      alert("เชื่อมต่อ server ไม่ได้");
+      toast.error("เชื่อมต่อ server ไม่ได้", { id: "review" });
     } finally {
       setIsSubmitting(false);
     }
@@ -326,9 +341,12 @@ export default function CompanyReview() {
           {renderInfoSection()}
 
           <div className="flex justify-end gap-4 mt-4">
-            <Link to={`/company/${id}`} className="border px-4 py-2 rounded">
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="border px-4 py-2 rounded"
+            >
               ยกเลิก
-            </Link>
+            </button>
 
             <button
               onClick={() => setShowConfirmModal(true)}
@@ -374,6 +392,34 @@ export default function CompanyReview() {
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'กำลังส่ง...' : 'ยืนยัน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowCancelModal(false)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-center text-xl font-bold text-gray-900">ยืนยันการยกเลิก</h3>
+            <p className="mt-3 text-center text-sm text-gray-600">
+              คุณต้องการยกเลิกการเขียนรีวิวหรือไม่? ข้อมูลที่กรอกไว้จะไม่ถูกบันทึก
+            </p>
+            <div className="mt-6 flex gap-3 justify-center">
+              <button
+                type="button"
+                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                onClick={() => setShowCancelModal(false)}
+              >
+                กลับไปแก้ไข
+              </button>
+              <button
+                type="button"
+                className="px-6 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700"
+                onClick={() => navigate(`/company/${id}`)}
+              >
+                ยืนยันยกเลิก
               </button>
             </div>
           </div>
