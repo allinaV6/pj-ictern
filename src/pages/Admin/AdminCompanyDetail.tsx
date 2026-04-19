@@ -183,9 +183,20 @@ export default function AdminCompanyDetail() {
       nextErrors.company_email = 'รูปแบบอีเมลไม่ถูกต้อง';
     }
 
+    const normalizedCurrentName = normalizeCompanyName(form.company_name);
+    const currentId = Number(id);
+    const hasExactDuplicateName = existingCompanies.some(
+      (company) => Number(company.company_id) !== currentId
+        && normalizeCompanyName(company.company_name) === normalizedCurrentName
+    );
+
+    if (normalizedCurrentName && hasExactDuplicateName) {
+      nextErrors.company_name = 'ชื่อบริษัทนี้มีอยู่แล้วในระบบ';
+    }
+
     setErrors(nextErrors);
 
-    if (missingFields.length > 0 || nextErrors.company_phone_num || nextErrors.company_email) {
+    if (missingFields.length > 0 || nextErrors.company_phone_num || nextErrors.company_email || nextErrors.company_name) {
       const invalidFormats: string[] = [];
       if (nextErrors.company_phone_num) invalidFormats.push('เบอร์โทรศัพท์');
       if (nextErrors.company_email) invalidFormats.push('อีเมล');
@@ -206,7 +217,15 @@ export default function AdminCompanyDetail() {
       navigate('/admin/companies');
     } catch (e) {
       console.error(e);
-      alert('บันทึกไม่สำเร็จ');
+      if (axios.isAxiosError(e)) {
+        const message = String(e.response?.data?.message || 'บันทึกไม่สำเร็จ');
+        if (e.response?.status === 409) {
+          setErrors((prev) => ({ ...prev, company_name: message }));
+        }
+        alert(message);
+      } else {
+        alert('บันทึกไม่สำเร็จ');
+      }
     }
   };
 

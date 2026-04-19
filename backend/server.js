@@ -1,9 +1,9 @@
-require("dotenv").config();
 const express = require("express");
 const mysql = require("mysql2/promise");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,7 +19,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "123456",
+  password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "ictern",
   port: process.env.DB_PORT || 3306,
 });
@@ -27,6 +27,7 @@ const db = mysql.createPool({
 const DEFAULT_IMPORTED_USER_PASSWORD = "1234";
 
 const normalizePhone = (value) => String(value || "").replace(/[\s()-]/g, "").trim();
+const normalizeCompanyName = (value) => String(value || "").trim().replace(/\s+/g, " ");
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 const isValidPhone = (value) => /^(?:0\d{8,9}|\+66\d{8,9})$/.test(normalizePhone(value));
 const isValidHttpUrl = (value) => {
@@ -918,8 +919,23 @@ app.post("/api/companies", async (req, res) => {
       account_id
     } = req.body;
 
+    const normalizedCompanyName = normalizeCompanyName(company_name);
+
+    if (!normalizedCompanyName) {
+      return res.status(400).json({ message: 'กรุณากรอกชื่อบริษัท' });
+    }
+
     const normalizedCompanyEmail = String(company_email || '').trim();
     const normalizedCompanyPhone = normalizePhone(company_phone_num);
+
+    const [duplicateCompanies] = await db.query(
+      `SELECT company_id FROM company WHERE LOWER(TRIM(company_name)) = LOWER(TRIM(?)) LIMIT 1`,
+      [normalizedCompanyName]
+    );
+
+    if (duplicateCompanies.length > 0) {
+      return res.status(409).json({ message: 'ชื่อบริษัทนี้มีอยู่แล้วในระบบ' });
+    }
 
     if (normalizedCompanyEmail && !isValidEmail(normalizedCompanyEmail)) {
       return res.status(400).json({ message: 'รูปแบบอีเมลบริษัทไม่ถูกต้อง' });
@@ -953,7 +969,7 @@ app.post("/api/companies", async (req, res) => {
         company_logo, company_status, company_create_date, admin_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
       [
-        company_name, 
+        normalizedCompanyName,
         company_address || null, 
         company_type || null, 
         normalizedCompanyEmail || null, 
@@ -1000,8 +1016,23 @@ app.put("/api/companies/:id", async (req, res) => {
       company_status
     } = req.body;
 
+    const normalizedCompanyName = normalizeCompanyName(company_name);
+
+    if (!normalizedCompanyName) {
+      return res.status(400).json({ message: 'กรุณากรอกชื่อบริษัท' });
+    }
+
     const normalizedCompanyEmail = String(company_email || '').trim();
     const normalizedCompanyPhone = normalizePhone(company_phone_num);
+
+    const [duplicateCompanies] = await db.query(
+      `SELECT company_id FROM company WHERE LOWER(TRIM(company_name)) = LOWER(TRIM(?)) AND company_id <> ? LIMIT 1`,
+      [normalizedCompanyName, id]
+    );
+
+    if (duplicateCompanies.length > 0) {
+      return res.status(409).json({ message: 'ชื่อบริษัทนี้มีอยู่แล้วในระบบ' });
+    }
 
     if (normalizedCompanyEmail && !isValidEmail(normalizedCompanyEmail)) {
       return res.status(400).json({ message: 'รูปแบบอีเมลบริษัทไม่ถูกต้อง' });
@@ -1018,7 +1049,7 @@ app.put("/api/companies/:id", async (req, res) => {
         company_description = ?, company_logo = ?, company_status = ? 
       WHERE company_id = ?`,
       [
-        company_name, company_address, company_type, normalizedCompanyEmail || null,
+        normalizedCompanyName, company_address, company_type, normalizedCompanyEmail || null,
         normalizedCompanyPhone || null, company_link, company_description,
         company_logo, company_status, id
       ]
