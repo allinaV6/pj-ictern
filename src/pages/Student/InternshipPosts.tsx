@@ -82,6 +82,8 @@ function InternshipPosts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showOpenPosts, setShowOpenPosts] = useState(true);
+  const [showClosedPosts, setShowClosedPosts] = useState(true);
   const [selectedPost, setSelectedPost] = useState<InternshipPostType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPosterModalOpen, setIsPosterModalOpen] = useState(false);
@@ -205,6 +207,13 @@ const toggleFavorite = async (postId: number) => {
         return text.includes(keyword);
       })
       .filter((post) => {
+        const isOpen = isPostOpenByDateAndStatus(post);
+        if (!showOpenPosts && !showClosedPosts) return false;
+        if (showOpenPosts && !showClosedPosts) return isOpen;
+        if (!showOpenPosts && showClosedPosts) return !isOpen;
+        return true;
+      })
+      .filter((post) => {
         if (!showFavoritesOnly) return true;
         return favoriteIds.includes(post.post_id);
       });
@@ -288,7 +297,7 @@ const toggleFavorite = async (postId: number) => {
     }
 
     return result;
-  }, [posts, searchTerm, showFavoritesOnly, favoriteIds, sortType]);
+  }, [posts, searchTerm, showFavoritesOnly, favoriteIds, sortType, showOpenPosts, showClosedPosts]);
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -329,6 +338,27 @@ const toggleFavorite = async (postId: number) => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+
+            <div className="flex flex-col justify-between gap-2 text-sm text-gray-600">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showOpenPosts}
+                  onChange={(e) => setShowOpenPosts(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                โพสต์เปิดอยู่
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showClosedPosts}
+                  onChange={(e) => setShowClosedPosts(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                โพสต์ปิดแล้ว
+              </label>
             </div>
 
             {/* 🔥 SORT */}
