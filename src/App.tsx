@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Login from './pages/Student/Login';
 import InternshipPosts from './pages/Student/InternshipPosts';
 import InternshipPostDetail from './pages/Student/InternshipPostDetail';
@@ -52,6 +53,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50 text-gray-900">
+        <Toaster position="top-right" />
 
         <Routes>
 

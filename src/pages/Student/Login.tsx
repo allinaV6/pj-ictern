@@ -58,11 +58,17 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("role", data.role);
 
-    
+      toast.success("เข้าสู่ระบบสำเร็จ", { id: "login" });
       navigate("/posts");
 
     } catch (error: any) {
-      toast.error("อีเมลหรือรหัสผ่านไม่ถูกต้อง", { id: "login" });
+      if (error?.code === "auth/user-not-found") {
+        toast.error("ไม่พบบัญชีในระบบ", { id: "login" });
+      } else if (error?.code === "auth/wrong-password") {
+        toast.error("รหัสผ่านไม่ถูกต้อง", { id: "login" });
+      } else {
+        toast.error("อีเมลหรือรหัสผ่านไม่ถูกต้อง", { id: "login" });
+      }
     } finally {
       setLoading(false);
     }
