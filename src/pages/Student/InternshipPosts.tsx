@@ -537,7 +537,21 @@ const toggleFavorite = async (postId: number) => {
                   <>
                     {/* Header Info */}
                     <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedPost.internship_title}</h2>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-2xl font-bold text-blue-900">{selectedPost.internship_title}</h2>
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(selectedPost.post_id)}
+                          className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                          title={favoriteIds.includes(selectedPost.post_id) ? 'ยกเลิกบันทึกโพสต์' : 'บันทึกโพสต์'}
+                        >
+                          <Heart
+                            size={18}
+                            className={favoriteIds.includes(selectedPost.post_id) ? 'text-red-500' : 'text-gray-400'}
+                            fill={favoriteIds.includes(selectedPost.post_id) ? 'currentColor' : 'none'}
+                          />
+                        </button>
+                      </div>
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-gray-600 font-medium">{selectedPost.company_name}</span>
                         <div className={`flex items-center gap-1 font-bold ${selectedPost?.review_count ? 'text-yellow-500' : 'text-gray-400'}`}>

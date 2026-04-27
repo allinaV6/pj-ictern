@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
-import { MapPin, Clock, Calendar, FileText, Building2, Mail, Star, CheckCircle, XCircle } from "lucide-react";
+import { MapPin, Clock, Calendar, FileText, Building2, Mail, Star, CheckCircle, XCircle, Heart } from "lucide-react";
 import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../../lib/postStatus';
 
 interface InternshipPostType {
@@ -45,10 +45,70 @@ const formatDateOnly = (dateString: string | undefined): string => formatThaiDat
 function InternshipPostDetail() {
 
   const { id } = useParams();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   const [post, setPost] = useState<InternshipPostType | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+
+  const loadFavorites = async () => {
+    const userId = user?.student_id || user?.admin_id || user?.user_id;
+    const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
+
+    if (!userId) {
+      setFavoriteIds([]);
+      return;
+    }
+
+    try {
+      const url = userRole === 'admin'
+        ? `http://localhost:5000/api/favorites/${userId}?user_type=admin`
+        : `http://localhost:5000/api/favorites/${userId}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      const ids = Array.isArray(data) ? data.map((f: any) => f.post_id) : [];
+      setFavoriteIds(ids);
+    } catch (err) {
+      console.error('Error loading favorites:', err);
+      setFavoriteIds([]);
+    }
+  };
+
+  const toggleFavorite = async (postId: number) => {
+    const userId = user?.student_id || user?.admin_id || user?.user_id;
+    const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
+
+    if (!userId) {
+      alert('กรุณาเข้าสู่ระบบก่อน');
+      return;
+    }
+
+    const isFav = favoriteIds.includes(postId);
+
+    try {
+      if (isFav) {
+        await fetch("http://localhost:5000/api/favorites", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: userId, post_id: postId, user_type: userRole })
+        });
+      } else {
+        await fetch("http://localhost:5000/api/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: userId, post_id: postId, user_type: userRole })
+        });
+      }
+
+      await loadFavorites();
+      window.dispatchEvent(new Event("favoritesChanged"));
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      alert('เกิดข้อผิดพลาดในการบันทึกรายการโปรด');
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -65,6 +125,10 @@ function InternshipPostDetail() {
       });
 
   }, [id]);
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
 
   if (loading) {
     return <div className="p-10 text-center">กำลังโหลดข้อมูล...</div>;
@@ -86,9 +150,23 @@ function InternshipPostDetail() {
         <div className="bg-white p-8 rounded-xl shadow-sm border">
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-blue-900">
-            {post.internship_title}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-blue-900">
+              {post.internship_title}
+            </h1>
+            <button
+              type="button"
+              onClick={() => toggleFavorite(post.post_id)}
+              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              title={favoriteIds.includes(post.post_id) ? 'ยกเลิกบันทึกโพสต์' : 'บันทึกโพสต์'}
+            >
+              <Heart
+                size={20}
+                className={favoriteIds.includes(post.post_id) ? 'text-red-500' : 'text-gray-400'}
+                fill={favoriteIds.includes(post.post_id) ? 'currentColor' : 'none'}
+              />
+            </button>
+          </div>
 
           {/* 🔥 Company + Rating */}
           <div className="flex items-center gap-4 text-gray-600 mt-2">

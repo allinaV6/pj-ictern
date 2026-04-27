@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
-import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Star, Calendar, Clock } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, Info, X, CheckCircle, FileText, Star, Calendar, Clock, Heart } from 'lucide-react';
 import axios from 'axios';
 import { formatThaiDateOnly, isPostOpenByDateAndStatus } from '../../lib/postStatus';
 
@@ -90,6 +90,65 @@ export default function DetailCompany() {
   const [isReviewDetailModalOpen, setIsReviewDetailModalOpen] = useState(false);
   const [canReview, setCanReview] = useState(false);
   const [eligibilityChecked, setEligibilityChecked] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+
+  const loadFavorites = async () => {
+    const userId = user?.student_id || user?.admin_id || user?.user_id;
+    const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
+
+    if (!userId) {
+      setFavoriteIds([]);
+      return;
+    }
+
+    try {
+      const url = userRole === 'admin'
+        ? `http://localhost:5000/api/favorites/${userId}?user_type=admin`
+        : `http://localhost:5000/api/favorites/${userId}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      const ids = Array.isArray(data) ? data.map((f: any) => f.post_id) : [];
+      setFavoriteIds(ids);
+    } catch (err) {
+      console.error('Error loading favorites:', err);
+      setFavoriteIds([]);
+    }
+  };
+
+  const toggleFavorite = async (postId: number) => {
+    const userId = user?.student_id || user?.admin_id || user?.user_id;
+    const userRole = user?.role || (user?.student_id ? 'student' : 'admin');
+
+    if (!userId) {
+      alert('กรุณาเข้าสู่ระบบก่อน');
+      return;
+    }
+
+    const isFav = favoriteIds.includes(postId);
+
+    try {
+      if (isFav) {
+        await fetch('http://localhost:5000/api/favorites', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: userId, post_id: postId, user_type: userRole })
+        });
+      } else {
+        await fetch('http://localhost:5000/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: userId, post_id: postId, user_type: userRole })
+        });
+      }
+
+      await loadFavorites();
+      window.dispatchEvent(new Event('favoritesChanged'));
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      alert('เกิดข้อผิดพลาดในการบันทึกรายการโปรด');
+    }
+  };
 
 
   useEffect(() => {
@@ -154,6 +213,10 @@ export default function DetailCompany() {
 
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
 
   if (loading) {
     return (
@@ -263,7 +326,7 @@ export default function DetailCompany() {
                   className={`p-6 rounded-xl border shadow-sm transition-all
     ${isOpen
                       ? 'bg-white border-gray-200'
-                      : 'bg-gray-100 border-gray-300 opacity-70'
+                      : 'bg-gray-100 border-gray-300'
                     }
   `}
                 >
@@ -546,7 +609,21 @@ export default function DetailCompany() {
             <div className="overflow-y-auto p-8 pt-10">
               {/* Header Info */}
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-blue-900 mb-1">{selectedJob.internship_title}</h2>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-2xl font-bold text-blue-900">{selectedJob.internship_title}</h2>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(selectedJob.post_id)}
+                    className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                    title={favoriteIds.includes(selectedJob.post_id) ? 'ยกเลิกบันทึกโพสต์' : 'บันทึกโพสต์'}
+                  >
+                    <Heart
+                      size={18}
+                      className={favoriteIds.includes(selectedJob.post_id) ? 'text-red-500' : 'text-gray-400'}
+                      fill={favoriteIds.includes(selectedJob.post_id) ? 'currentColor' : 'none'}
+                    />
+                  </button>
+                </div>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-gray-600 font-medium">{company?.company_name}</span>
                   <div className="flex items-center gap-1 text-yellow-500 font-bold">
@@ -641,15 +718,15 @@ export default function DetailCompany() {
             </div>
 
             {/* Footer Actions */}
-            {isPostOpenByDateAndStatus(selectedJob) && (
-              <div className="p-8 pt-4 flex justify-center">
+            <div className="p-8 pt-4 flex justify-center gap-4">
+              {isPostOpenByDateAndStatus(selectedJob) && (
                 <button
                   className="px-10 py-3 text-white font-bold rounded-xl bg-[#1a3a8a] hover:bg-blue-800 transition-colors shadow-sm"
                 >
                   สมัครงาน
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import Navbar from '../../components/Navbar';
-import { User, CheckSquare } from 'lucide-react';
+import { User, CheckSquare, Building2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,6 +9,8 @@ const getNotificationPreferenceKey = (userType: 'student' | 'admin', userId: num
 export default function Setting() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [internshipCompanyName, setInternshipCompanyName] = useState<string>('');
+  const [internshipPositionTitle, setInternshipPositionTitle] = useState<string>('');
   const navigate = useNavigate();
 
   // 🔥 โหลด user จาก localStorage
@@ -40,6 +42,24 @@ export default function Setting() {
       localStorage.setItem(scopedKey, JSON.stringify(true));
       setNotificationsEnabled(true);
     }
+
+    const loadInternshipCompany = async () => {
+      if (!parsedUser?.student_id) return;
+
+      const lookupId = parsedUser?.account_id || parsedUser?.id || parsedUser?.student_id;
+
+      try {
+        const res = await fetch(`http://localhost:5000/api/users/${lookupId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setInternshipCompanyName(data?.internship_company_name || '');
+        setInternshipPositionTitle(data?.internship_position_title || '');
+      } catch (error) {
+        console.error('Error loading internship company:', error);
+      }
+    };
+
+    loadInternshipCompany();
   }, []);
 
   // 🔥 เซฟสถานะเมื่อเปลี่ยน
@@ -110,6 +130,19 @@ export default function Setting() {
                 {userProgram}
               </p>
             </div>
+
+            {!isAdmin && internshipCompanyName && (
+              <div className="mb-8">
+                <h2 className="text-blue-900 font-bold mb-1 text-lg">Internship Company</h2>
+                <div className="flex items-start gap-2 text-gray-700 text-base">
+                  <Building2 size={18} className="text-blue-900 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">{internshipCompanyName}</p>
+                    <p className="text-sm text-gray-500">ตำแหน่ง: {internshipPositionTitle || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Notification */}
             <div className="border-t border-gray-200 pt-6">
