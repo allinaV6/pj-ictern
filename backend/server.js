@@ -1457,17 +1457,19 @@ app.get("/api/dashboard/summary", async (req, res) => {
     }
     const [reviews] = await db.query(reviewSql, reviewParams);
     
-    // 4. Total Interns (Filtered by Position if provided)
-    let internsSql = "SELECT COUNT(DISTINCT student_id) as count FROM internship_of_student";
+    // 4. Total Interns (use the same source as User Management: student/account)
+    //    This prevents mismatch where internship history rows outnumber actual users.
+    let internsSql = `
+      SELECT COUNT(DISTINCT s.student_id) as count
+      FROM student s
+    `;
     let internsParams = [];
     if (isFiltered) {
-        internsSql = `
-            SELECT COUNT(DISTINCT ios.student_id) as count 
-            FROM internship_of_student ios
-            JOIN internship_posts ip ON ios.company_id = ip.company_id
-        WHERE 1=1
-        `;
-        internsSql += buildPositionFilter('ip', 'internship_title', internsParams);
+      internsSql = `
+        SELECT COUNT(DISTINCT ios.student_id) as count
+        FROM internship_of_student ios
+      `;
+      internsSql += buildPositionFilter('ios', 'student_internship_posts_name', internsParams);
     }
     const [interns] = await db.query(internsSql, internsParams);
 

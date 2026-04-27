@@ -139,7 +139,7 @@ export default function AdminPositionDetail() {
               ยกเลิก
             </button>
             <button
-              className="px-6 py-2.5 rounded-lg border border-red-200 bg-red-50 text-red-600 font-semibold text-base hover:bg-red-100 transition-colors disabled:opacity-50"
+              className="px-6 py-2.5 rounded-lg bg-red-600 border border-white text-white font-semibold text-base hover:bg-red-700 transition-colors disabled:opacity-50"
               onClick={handleDelete}
               disabled={saving || deleting}
             >
