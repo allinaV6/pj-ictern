@@ -148,7 +148,7 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
       <div className="max-w-6xl mx-auto flex justify-between items-center">
         
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <Link to="/posts" className="flex items-center gap-3 cursor-pointer">
           <img
             src="/ictern logo 250x150 nobg.png"
             alt="ICtern Logo"
@@ -158,7 +158,7 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
             <h1 className="text-lg md:text-xl leading-tight text-blue-900">Faculty of Information and</h1>
             <h1 className="text-lg md:text-xl leading-tight text-blue-900">Communication Technology</h1>
           </div>
-        </div>
+        </Link>
         
         {/* Menu */}
         <div className="flex items-center gap-4 text-gray-700 font-medium text-sm md:text-base">
@@ -183,7 +183,7 @@ export default function Navbar({ isAdmin = false }: { isAdmin?: boolean }) {
                 aria-current={isOnQuizPage ? 'page' : undefined}
               >
                 <span className="relative">
-                  แบบทดสอบ
+                  แบบประเมิน
                   {isOnQuizPage && (
                     <span className="absolute left-0 -bottom-1 h-0.5 w-full rounded-full bg-blue-600" />
                   )}

@@ -370,8 +370,8 @@ const toggleFavorite = async (postId: number) => {
               <option value="">เรียงตาม</option>
               <option value="compensation">ค่าตอบแทนสูงสุด</option>
               <option value="compensation_asc">ค่าตอบแทนต่ำสุด</option>
-              <option value="duration">ระยะเวลานานที่สุด</option>
-              <option value="duration_asc">ระยะเวลาสั้นที่สุด</option>
+              <option value="duration">ระยะเวลาฝึกงานนานที่สุด</option>
+              <option value="duration_asc">ระยะเวลาฝึกงานสั้นที่สุด</option>
               <option value="rating">คะแนนรีวิวสูงสุด</option>
               <option value="rating_asc">คะแนนรีวิวต่ำสุด</option>
               <option value="nearest_expiry">ใกล้ปิดรับสมัครที่สุด</option>
