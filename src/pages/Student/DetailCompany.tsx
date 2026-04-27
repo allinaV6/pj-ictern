@@ -38,7 +38,7 @@ const renderCompensation = (value: string | number | undefined | null): string =
   const numPart = str.replace(/[^0-9.]/g, '');
   const num = parseFloat(numPart);
   if (isNaN(num)) return 'N/A';
-  
+
   const formattedNum = num.toLocaleString('th-TH');
   const unit = str.includes('ต่อวัน') ? 'บาท/วัน' : 'บาท/เดือน';
   return `฿ ${formattedNum} ${unit}`;
@@ -91,6 +91,7 @@ export default function DetailCompany() {
   const [canReview, setCanReview] = useState(false);
   const [eligibilityChecked, setEligibilityChecked] = useState(false);
 
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id || id === 'undefined') {
@@ -102,11 +103,11 @@ export default function DetailCompany() {
       try {
         setLoading(true);
         console.log(`Fetching data for company ID: ${id}`);
-        
+
         const [companyRes, postsRes, reviewRes] = await Promise.all([
           axios.get(`http://localhost:5000/api/company/${id}`),
           axios.get(`http://localhost:5000/api/posts/company/${id}`),
-          axios.get(`http://localhost:5000/api/reviews/company/${id}`) 
+          axios.get(`http://localhost:5000/api/reviews/company/${id}`)
         ]);
 
         setCompany(companyRes.data);
@@ -185,11 +186,11 @@ export default function DetailCompany() {
 
       {/* Dark Blue Header Banner */}
       <div className="bg-blue-900 text-white py-12 px-4">
-          <div className="max-w-6xl mx-auto">
-             <h1 className="text-4xl font-bold">รายละเอียดบริษัท {company.company_name}</h1>
-          </div>
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-4xl font-bold">รายละเอียดบริษัท {company.company_name}</h1>
+        </div>
       </div>
-      
+
       <div className="max-w-6xl mx-auto px-4 mt-10">
         {/* Company Info Section */}
         <div className="mb-4 border-b border-gray-100 pb-4">
@@ -214,26 +215,26 @@ export default function DetailCompany() {
               </div>
             </div>
           </div>
-          
+
           <p className="text-gray-600 text-sm mb-6 leading-relaxed max-w-4xl">
             {company.company_description}
           </p>
-          
+
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
             <div className="flex items-center gap-1.5">
-              <MapPin size={14} className="text-red-500"/> 
+              <MapPin size={14} className="text-red-500" />
               {company.company_address || 'ไม่ระบุ'}
             </div>
             <div className="flex items-center gap-1.5">
-              <Phone size={14} className="text-green-600"/> 
+              <Phone size={14} className="text-green-600" />
               {company.company_phone_num || 'ไม่ระบุ'}
             </div>
             <div className="flex items-center gap-1.5">
-              <Mail size={14} className="text-gray-500"/> 
+              <Mail size={14} className="text-gray-500" />
               {company.company_email || 'ไม่ระบุ'}
             </div>
             <div className="flex items-center gap-1.5">
-              <Globe size={14} className="text-blue-500"/> 
+              <Globe size={14} className="text-blue-500" />
               {company.company_link && company.company_link !== '-' ? (
                 <a href={company.company_link} target="_blank" rel="noreferrer" className="hover:underline text-blue-600">
                   {company.company_link.replace('https://', '').replace('http://', '')}
@@ -257,10 +258,20 @@ export default function DetailCompany() {
                 : 'bg-red-100 text-red-700 border-red-200';
 
               return (
-                <div key={job.post_id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div
+                  key={job.post_id}
+                  className={`p-6 rounded-xl border shadow-sm transition-all
+    ${isOpen
+                      ? 'bg-white border-gray-200'
+                      : 'bg-gray-100 border-gray-300 opacity-70'
+                    }
+  `}
+                >
                   <div className="flex flex-col gap-2 mb-4">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-blue-900 font-bold text-lg">{job.internship_title}</h3>
+                      <h3 className={`font-bold text-lg ${isOpen ? 'text-blue-900' : 'text-gray-500'}`}>
+                        {job.internship_title}
+                      </h3>
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusStyles}`}>
                         {statusText}
                       </span>
@@ -302,43 +313,43 @@ export default function DetailCompany() {
         {/* Reviews Section */}
         <div>
           <div className="flex justify-between items-center mb-6">
-             <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
-               รีวิวการฝึกงาน ({reviews.length}) 
-               <div className="relative group">
-                 <Info 
-                   size={16} 
-                   className="text-blue-400 cursor-pointer hover:text-blue-600 transition-colors"
-                 />
-                 <div className="absolute left-8 top-1/2 -translate-y-1/2 w-[320px] bg-[#05101c] text-white p-5 rounded-xl shadow-2xl z-50 text-[13px] border border-gray-800 hidden group-hover:block">
-                      {/* Left Arrow Pointer */}
-                      <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-[#05101c]"></div>
-                      
-                      <div className="space-y-4">
-                        <div>
-                           <h4 className="font-bold text-white mb-1">ด้านสังคม (Social):</h4>
-                           <p className="text-gray-300 font-light leading-relaxed">มุ่งเน้นไปที่ความสัมพันธ์กับเพื่อนร่วมงาน บรรยากาศและการช่วยเหลือกันภายในทีม</p>
-                        </div>
-                        <div>
-                           <h4 className="font-bold text-white mb-1">ด้านชีวิต (Life):</h4>
-                           <p className="text-gray-300 font-light leading-relaxed">มุ่งเน้นไปที่ความสมดุลระหว่างชีวิตและการทำงาน รวมถึงวัฒนธรรมองค์กร และสภาพแวดล้อมของที่ทำงาน</p>
-                        </div>
-                        <div>
-                           <h4 className="font-bold text-white mb-1">ด้านงาน (Work):</h4>
-                           <p className="text-gray-300 font-light leading-relaxed">มุ่งเน้นไปที่ประสบการณ์การทำงานโดยตรง รวมถึงความท้าทายของงาน โอกาสในการเรียนรู้ และความพร้อมของเครื่องมือที่ใช้</p>
-                        </div>
-                      </div>
+            <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+              รีวิวการฝึกงาน ({reviews.length})
+              <div className="relative group">
+                <Info
+                  size={16}
+                  className="text-blue-400 cursor-pointer hover:text-blue-600 transition-colors"
+                />
+                <div className="absolute left-8 top-1/2 -translate-y-1/2 w-[320px] bg-[#05101c] text-white p-5 rounded-xl shadow-2xl z-50 text-[13px] border border-gray-800 hidden group-hover:block">
+                  {/* Left Arrow Pointer */}
+                  <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-[#05101c]"></div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-bold text-white mb-1">ด้านสังคม (Social):</h4>
+                      <p className="text-gray-300 font-light leading-relaxed">มุ่งเน้นไปที่ความสัมพันธ์กับเพื่อนร่วมงาน บรรยากาศและการช่วยเหลือกันภายในทีม</p>
                     </div>
-               </div>
-             </h2>
-             {eligibilityChecked && canReview ? (
-               <Link to={`/company/${id}/review`} className="bg-blue-900 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition-colors shadow-sm">
-                 เขียนรีวิวของคุณ
-               </Link>
-             ) : (
-               <button disabled className="bg-gray-300 text-white px-6 py-2 rounded-lg text-sm font-bold cursor-not-allowed">
-                 ไม่มีสิทธิ์เขียนรีวิว
-               </button>
-             )}
+                    <div>
+                      <h4 className="font-bold text-white mb-1">ด้านชีวิต (Life):</h4>
+                      <p className="text-gray-300 font-light leading-relaxed">มุ่งเน้นไปที่ความสมดุลระหว่างชีวิตและการทำงาน รวมถึงวัฒนธรรมองค์กร และสภาพแวดล้อมของที่ทำงาน</p>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white mb-1">ด้านงาน (Work):</h4>
+                      <p className="text-gray-300 font-light leading-relaxed">มุ่งเน้นไปที่ประสบการณ์การทำงานโดยตรง รวมถึงความท้าทายของงาน โอกาสในการเรียนรู้ และความพร้อมของเครื่องมือที่ใช้</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </h2>
+            {eligibilityChecked && canReview ? (
+              <Link to={`/company/${id}/review`} className="bg-blue-900 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition-colors shadow-sm">
+                เขียนรีวิวของคุณ
+              </Link>
+            ) : (
+              <button disabled className="bg-gray-300 text-white px-6 py-2 rounded-lg text-sm font-bold cursor-not-allowed">
+                ไม่มีสิทธิ์เขียนรีวิว
+              </button>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -418,15 +429,15 @@ export default function DetailCompany() {
       {isReviewDetailModalOpen && selectedReview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsReviewDetailModalOpen(false)}
           ></div>
-          
+
           {/* Modal Content */}
           <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
             {/* Close Button */}
-            <button 
+            <button
               onClick={() => setIsReviewDetailModalOpen(false)}
               className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10 p-2 hover:bg-gray-100 rounded-full transition-all"
             >
@@ -517,15 +528,15 @@ export default function DetailCompany() {
       {isModalOpen && selectedJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
           ></div>
-          
+
           {/* Modal Content */}
           <div className="relative bg-white w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col">
             {/* Close Button */}
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
               className="absolute right-6 top-6 text-gray-400 hover:text-gray-600 z-10 p-2 hover:bg-gray-100 rounded-full transition-all"
             >
@@ -630,24 +641,15 @@ export default function DetailCompany() {
             </div>
 
             {/* Footer Actions */}
-            <div className="p-8 pt-4 flex justify-center gap-4">
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="px-8 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                ปิดหน้าต่าง
-              </button>
-              <button 
-                disabled={!isPostOpenByDateAndStatus(selectedJob)}
-                className={`px-10 py-3 text-white font-bold rounded-xl transition-colors shadow-sm ${
-                  isPostOpenByDateAndStatus(selectedJob)
-                    ? 'bg-[#1a3a8a] hover:bg-blue-800'
-                    : 'bg-gray-400 cursor-not-allowed'
-                }`}
-              >
-                {isPostOpenByDateAndStatus(selectedJob) ? 'สมัครงาน' : 'ปิดรับสมัคร'}
-              </button>
-            </div>
+            {isPostOpenByDateAndStatus(selectedJob) && (
+              <div className="p-8 pt-4 flex justify-center">
+                <button
+                  className="px-10 py-3 text-white font-bold rounded-xl bg-[#1a3a8a] hover:bg-blue-800 transition-colors shadow-sm"
+                >
+                  สมัครงาน
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

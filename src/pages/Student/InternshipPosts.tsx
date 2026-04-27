@@ -366,7 +366,7 @@ const toggleFavorite = async (postId: number) => {
               value={sortType}
               onChange={(e) => setSortType(e.target.value)}
               className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700"
-            >
+            > 
               <option value="">เรียงตาม</option>
               <option value="compensation">ค่าตอบแทนสูงสุด</option>
               <option value="compensation_asc">ค่าตอบแทนต่ำสุด</option>
@@ -384,7 +384,7 @@ const toggleFavorite = async (postId: number) => {
               className={`px-5 py-2.5 border rounded-lg flex items-center gap-2 ${showFavoritesOnly ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white text-gray-700 border-gray-300'}`}
             >
               <Heart size={18} fill={showFavoritesOnly ? "currentColor" : "none"} />
-              รายการที่บันทึกไว้
+              รายการโปรด
             </button>
 
           </div>
