@@ -101,14 +101,14 @@ export default function ResultQuiz() {
 
       <div className="max-w-4xl mx-auto mt-10 bg-white p-10 rounded-lg shadow">
 
-        {/* 🔥 อันดับ 1 */}
-        <p className="text-blue-900 font-bold text-lg mb-4 border-b pb-2">
-          ผลลัพธ์ตำแหน่งอันดับ 1 ของคุณคือ {results[0].name}
+        {/* 🔥 อันดับ 1 (swapped content) */}
+        <p className="text-blue-900 font-bold text-2xl mb-4 border-b pb-2">
+          อันดับสายงานที่เหมาะสมกับคุณ
         </p>
 
-        {/* 🔥 TITLE */}
-        <h2 className="text-2xl font-bold text-center mb-10 text-blue-900">
-          อันดับสายงานที่เหมาะสมกับคุณ
+        {/* 🔥 TITLE (swapped content) */}
+        <h2 className="text-lg font-bold text-left mb-10 text-blue-900">
+          ผลลัพธ์ตำแหน่งอันดับ 1 ของคุณคือ {results[0].name}
         </h2>
 
         {/* 🔥 RANKING TABLE */}
