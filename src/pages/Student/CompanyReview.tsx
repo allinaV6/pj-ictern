@@ -240,7 +240,7 @@ export default function CompanyReview() {
         </button>
 
         <div className="absolute left-72 top-1/2 -translate-y-1/2 hidden group-hover:block z-20 w-72 rounded-lg bg-[#0f172a] text-white shadow-2xl px-4 py-3 text-sm leading-relaxed">
-          สามารถรีวิวได้เพียง 1 ครั้งต่อ 1 ตำแหน่งฝึกงาน หากเปลี่ยนตำแหน่งในบริษัทเดิมจะรีวิวใหม่ได้อีกครั้ง
+          สามารถรีวิวได้เพียง 1 ครั้งต่อ 1 ครั้งการฝึกงานเท่านั้น และไม่สามารถแก้ไขรีวิวได้หลังจากยืนยันการส่งแล้ว
         </div>
       </div>
 
@@ -370,7 +370,7 @@ export default function CompanyReview() {
             <div className="mt-4 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white">
               <p className="font-semibold">โปรดตรวจสอบก่อนยืนยัน</p>
               <p className="mt-1 text-slate-200">
-                คุณสามารถเขียนรีวิวได้เพียง 1 ครั้งต่อตำแหน่งฝึกงาน และไม่สามารถแก้ไขได้
+                คุณสามารถเขียนรีวิวได้เพียง 1 ครั้งต่อ 1 ครั้งการฝึกงานเท่านั้น และไม่สามารถแก้ไขรีวิวได้หลังจากยืนยันการส่งแล้ว
               </p>
             </div>
             <div className="mt-6 flex gap-3 justify-center">

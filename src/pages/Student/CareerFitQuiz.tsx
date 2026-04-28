@@ -12,8 +12,8 @@ export default function CareerFitQuiz() {
     const roleStr = String(localStorage.getItem('role') || user?.role || '').trim().toLowerCase();
     const isAdmin = roleStr.includes('admin') || (Boolean(user?.admin_id) && !Boolean(user?.student_id));
 
-    if (!user) return 'กรุณาเข้าสู่ระบบก่อนทำแบบทดสอบ';
-    if (isAdmin || !user?.student_id) return 'บัญชีนี้ไม่มีสิทธิ์ทำแบบทดสอบ กรุณาใช้บัญชี Student';
+    if (!user) return 'กรุณาเข้าสู่ระบบก่อนทำแบบประเมิน';
+    if (isAdmin || !user?.student_id) return 'บัญชีนี้ไม่มีสิทธิ์ทำแบบประเมิน กรุณาใช้บัญชี Student';
     return '';
   };
 
@@ -102,7 +102,7 @@ export default function CareerFitQuiz() {
     }
 
     if (!hasLatestResult) {
-      alert('ยังไม่มีผลลัพธ์แบบทดสอบล่าสุด กรุณาเริ่มทำแบบทดสอบก่อน');
+      alert('ยังไม่มีผลลัพธ์แบบประเมินล่าสุด กรุณาเริ่มทำแบบประเมินก่อน');
       return;
     }
 
@@ -249,7 +249,7 @@ export default function CareerFitQuiz() {
                 : 'bg-gray-300 text-gray-100 cursor-not-allowed'
             }`}
           >
-            เริ่มทำแบบทดสอบ
+            เริ่มทำแบบประเมิน
           </button>
         </div>
       </div>

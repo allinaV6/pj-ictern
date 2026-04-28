@@ -83,7 +83,7 @@ export default function AdminLayout({ children }: Props) {
             {canSeePosts && (
               <SidebarItem
                 icon={<FileText size={20} />}
-                label="Internship Post"
+                label="Internship Post Management"
                 active={isInternshipPosts}
                 onClick={() => navigate('/admin/internship-posts')}
               />
@@ -91,7 +91,7 @@ export default function AdminLayout({ children }: Props) {
             {canSeeCompanies && (
               <SidebarItem
                 icon={<Building2 size={20} />}
-                label="Company"
+                label="Company Management"
                 active={isCompanies}
                 onClick={() => navigate('/admin/companies')}
               />

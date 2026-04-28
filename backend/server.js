@@ -1401,16 +1401,28 @@ app.post("/api/uploads/poster", async (req, res) => {
 // ==================================================
 app.get("/api/dashboard/summary", async (req, res) => {
   try {
-    const { startDate, endDate, position } = req.query;
-    // position can be a string or an array of strings
-    const positions = Array.isArray(position) ? position : (position ? [position] : []);
-    const isFiltered = positions.length > 0 && !positions.includes('all');
+    const { startDate, endDate } = req.query;
+
+    // Support both `position` and `position[]` query formats from different serializers.
+    const rawPosition = req.query.position ?? req.query['position[]'];
+    const normalizedPositionValues = Array.isArray(rawPosition)
+      ? rawPosition
+      : (rawPosition ? [rawPosition] : []);
+
+    // Also support comma-separated values in case a client sends a single joined string.
+    const positions = normalizedPositionValues
+      .flatMap((value) => String(value || '').split(','))
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const filteredPositions = positions.filter((p) => p.toLowerCase() !== 'all');
+    const isFiltered = filteredPositions.length > 0;
     
     // Helper to build WHERE clause for multiple positions using LIKE
     const buildPositionFilter = (tableAlias, columnName, params) => {
       if (!isFiltered) return "";
-      const conditions = positions.map(() => `${tableAlias ? tableAlias + '.' : ''}${columnName} LIKE CONCAT('%', ?, '%')`);
-      params.push(...positions);
+      const conditions = filteredPositions.map(() => `${tableAlias ? tableAlias + '.' : ''}${columnName} LIKE CONCAT('%', ?, '%')`);
+      params.push(...filteredPositions);
       return ` AND (${conditions.join(' OR ')})`;
     };
 
@@ -1469,6 +1481,7 @@ app.get("/api/dashboard/summary", async (req, res) => {
       internsSql = `
         SELECT COUNT(DISTINCT ios.student_id) as count
         FROM internship_of_student ios
+        WHERE 1=1
       `;
       internsSql += buildPositionFilter('ios', 'student_internship_posts_name', internsParams);
     }
@@ -1487,9 +1500,9 @@ app.get("/api/dashboard/summary", async (req, res) => {
         posDistParams.push(startDate, endDate);
     }
     if (isFiltered) {
-        const placeholders = positions.map(() => '?').join(',');
+      const placeholders = filteredPositions.map(() => '?').join(',');
         posDistSql += ` AND p.position_name IN (${placeholders})`;
-        posDistParams.push(...positions);
+      posDistParams.push(...filteredPositions);
     }
     posDistSql += " GROUP BY p.position_name HAVING value > 0";
     const [posDist] = await db.query(posDistSql, posDistParams);
